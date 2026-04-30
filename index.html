@@ -998,6 +998,8 @@
 
 <script>
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzqOwDlailnl5tueK-JTF5HvvjoFC9a319gSAfP9ycVWOwQEgHMPo4vhgLyDf9qw9ACow/exec';
+const GEMINI_KEY = 'AIzaSyC-eQdtPYaB45jfW90FOkDbVea3mJCGzoQ';
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`;
 
 let allTransactions = [];
 let filteredTransactions = [];
@@ -1385,7 +1387,7 @@ async function processFile(file) {
     } else if (ext === 'pdf') {
       text.textContent = 'מנתח PDF עם בינה מלאכותית...';
       const base64 = await fileToBase64(file);
-      csvText = await analyzePDFWithClaude(base64, file.name);
+      csvText = await analyzePDFWithGemini(base64, file.name);
     } else if (ext === 'xlsx' || ext === 'xls') {
       text.textContent = 'קורא קובץ אקסל...';
       csvText = await readExcelAsCSV(file);
@@ -1426,23 +1428,8 @@ async function readExcelAsCSV(file) {
   return text;
 }
 
-async function analyzePDFWithClaude(base64Data, filename) {
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 4000,
-      messages: [{
-        role: 'user',
-        content: [
-          {
-            type: 'document',
-            source: { type: 'base64', media_type: 'application/pdf', data: base64Data }
-          },
-          {
-            type: 'text',
-            text: `זהו תדפיס בנק או חברת אשראי ישראלית בשם "${filename}".
+async function analyzePDFWithGemini(base64Data, filename) {
+  const prompt = `זהו תדפיס בנק או חברת אשראי ישראלית בשם "${filename}".
 חלץ את כל העסקאות הפיננסיות מהמסמך.
 החזר אך ורק טקסט CSV בפורמט הבא, ללא הסברים:
 תאריך,סכום,תיאור,מקור
@@ -1451,28 +1438,28 @@ async function analyzePDFWithClaude(base64Data, filename) {
 - סכום הוא מספר חיובי בלבד (ללא סימן מינוס)
 - תיאור הוא שם בית העסק או תיאור העסקה
 - מקור הוא שם הבנק/חברת האשראי
-החזר רק את ה-CSV, בלי שום דבר אחר.`
-          }
+החזר רק את ה-CSV, בלי שום דבר אחר.`;
+
+  const response = await fetch(GEMINI_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{
+        parts: [
+          { inline_data: { mime_type: 'application/pdf', data: base64Data } },
+          { text: prompt }
         ]
       }]
     })
   });
   const data = await response.json();
-  return data.content[0].text;
+  return data.candidates[0].content.parts[0].text;
 }
 
 async function parseTransactionsWithClaude(rawText, filename) {
   const catList = categories.map(c => c['קטגוריה']).join(', ');
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 4000,
-      messages: [{
-        role: 'user',
-        content: `אתה מנתח תדפיסי בנק ואשראי ישראליים.
+  const prompt = `אתה מנתח תדפיסי בנק ואשראי ישראליים.
 הנה נתוני גיליון/CSV מהקובץ "${filename}":
 
 ${rawText.substring(0, 8000)}
@@ -1496,13 +1483,18 @@ ${rawText.substring(0, 8000)}
 - סוג: הכנסה רק למשכורת/זיכוי/העברה לחשבון. שאר העסקאות = הוצאה
 - קטגוריה: בחר מהרשימה הקרובה ביותר
 - אם תאריך לא ברור, השתמש בתאריך הגיוני מההקשר
-- החזר רק JSON תקין, ללא שום טקסט אחר`
-      }]
+- החזר רק JSON תקין, ללא שום טקסט אחר`;
+
+  const response = await fetch(GEMINI_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }]
     })
   });
 
   const data = await response.json();
-  const text = data.content[0].text.replace(/```json|```/g, '').trim();
+  const text = data.candidates[0].content.parts[0].text.replace(/```json|```/g, '').trim();
   return JSON.parse(text);
 }
 
