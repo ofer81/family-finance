@@ -997,9 +997,8 @@
 <div class="toast-container" id="toast-container"></div>
 
 <script>
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzqOwDlailnl5tueK-JTF5HvvjoFC9a319gSAfP9ycVWOwQEgHMPo4vhgLyDf9qw9ACow/exec';
-const GEMINI_KEY = 'AIzaSyC-eQdtPYaB45jfW90FOkDbVea3mJCGzoQ';
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`;
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby-d0WTJ0rAfSL-UUGSoWh7Fr-ZiS0uwOQCijeVST--UO0J-DyVElFQGrPkLTrgKifE6w/exec';
+
 
 let allTransactions = [];
 let filteredTransactions = [];
@@ -1387,7 +1386,15 @@ async function processFile(file) {
     } else if (ext === 'pdf') {
       text.textContent = 'מנתח PDF עם בינה מלאכותית...';
       const base64 = await fileToBase64(file);
-      csvText = await analyzePDFWithGemini(base64, file.name);
+      parsedRows = await analyzePDFWithGemini(base64, file.name);
+      msg.classList.remove('visible');
+      if (parsedRows && parsedRows.length > 0) {
+        showPreview(parsedRows);
+        document.getElementById('import-btn').style.display = 'flex';
+      } else {
+        showToast('לא נמצאו עסקאות בקובץ', 'error');
+      }
+      return;
     } else if (ext === 'xlsx' || ext === 'xls') {
       text.textContent = 'קורא קובץ אקסל...';
       csvText = await readExcelAsCSV(file);
@@ -1429,73 +1436,36 @@ async function readExcelAsCSV(file) {
 }
 
 async function analyzePDFWithGemini(base64Data, filename) {
-  const prompt = `זהו תדפיס בנק או חברת אשראי ישראלית בשם "${filename}".
-חלץ את כל העסקאות הפיננסיות מהמסמך.
-החזר אך ורק טקסט CSV בפורמט הבא, ללא הסברים:
-תאריך,סכום,תיאור,מקור
-כאשר:
-- תאריך בפורמט YYYY-MM-DD
-- סכום הוא מספר חיובי בלבד (ללא סימן מינוס)
-- תיאור הוא שם בית העסק או תיאור העסקה
-- מקור הוא שם הבנק/חברת האשראי
-החזר רק את ה-CSV, בלי שום דבר אחר.`;
-
-  const response = await fetch(GEMINI_URL, {
+  const catList = categories.map(c => c['קטגוריה']).join(', ');
+  const response = await fetch(SCRIPT_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      contents: [{
-        parts: [
-          { inline_data: { mime_type: 'application/pdf', data: base64Data } },
-          { text: prompt }
-        ]
-      }]
+      action: 'analyzeFile',
+      fileBase64: base64Data,
+      mimeType: 'application/pdf',
+      filename: filename,
+      categories: catList
     })
   });
   const data = await response.json();
-  return data.candidates[0].content.parts[0].text;
+  if (!data.success) throw new Error(data.error || 'שגיאה בניתוח');
+  return data.data;
 }
 
 async function parseTransactionsWithClaude(rawText, filename) {
   const catList = categories.map(c => c['קטגוריה']).join(', ');
-
-  const prompt = `אתה מנתח תדפיסי בנק ואשראי ישראליים.
-הנה נתוני גיליון/CSV מהקובץ "${filename}":
-
-${rawText.substring(0, 8000)}
-
-הקטגוריות הזמינות: ${catList}
-
-החזר JSON בלבד (ללא הסברים, ללא markdown) – מערך של אובייקטים:
-[
-  {
-    "תאריך": "YYYY-MM-DD",
-    "סכום": 123.45,
-    "תיאור": "שם בית עסק",
-    "קטגוריה": "אחת מהרשימה",
-    "סוג": "הוצאה או הכנסה",
-    "מקור": "שם בנק/אשראי"
-  }
-]
-
-כללים:
-- סכום תמיד חיובי
-- סוג: הכנסה רק למשכורת/זיכוי/העברה לחשבון. שאר העסקאות = הוצאה
-- קטגוריה: בחר מהרשימה הקרובה ביותר
-- אם תאריך לא ברור, השתמש בתאריך הגיוני מההקשר
-- החזר רק JSON תקין, ללא שום טקסט אחר`;
-
-  const response = await fetch(GEMINI_URL, {
+  const response = await fetch(SCRIPT_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }]
+      action: 'analyzeFile',
+      rawText: rawText,
+      filename: filename,
+      categories: catList
     })
   });
-
   const data = await response.json();
-  const text = data.candidates[0].content.parts[0].text.replace(/```json|```/g, '').trim();
-  return JSON.parse(text);
+  if (!data.success) throw new Error(data.error || 'שגיאה בניתוח');
+  return data.data;
 }
 
 function showPreview(rows) {
