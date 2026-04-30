@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#0f1923">
 <title>ניהול פיננסי משפחתי</title>
 <link rel="manifest" href="manifest.json">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -1405,7 +1406,7 @@ async function processFile(file) {
     }
 
     text.textContent = 'מנתח עסקאות עם בינה מלאכותית...';
-    parsedRows = await parseTransactionsWithClaude(csvText, file.name);
+    parsedRows = await parseInChunks(csvText, file.name, text);
     msg.classList.remove('visible');
 
     if (parsedRows.length > 0) {
@@ -1429,10 +1430,31 @@ function fileToBase64(file) {
   });
 }
 
+async function readExcelFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, dateNF: 'YYYY-MM-DD' });
+        // Convert to CSV-like text
+        const text = rows.map(row => row.join('	')).join('
+');
+        resolve(text);
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(file);
+  });
+}
+
 async function readExcelAsCSV(file) {
-  // Simple approach: read as text and try to parse
-  const text = await file.text();
-  return text;
+  return await readExcelFile(file);
 }
 
 async function analyzePDFWithGemini(base64Data, filename) {
@@ -1450,6 +1472,27 @@ async function analyzePDFWithGemini(base64Data, filename) {
   const data = await response.json();
   if (!data.success) throw new Error(data.error || 'שגיאה בניתוח');
   return data.data;
+}
+
+async function parseInChunks(rawText, filename, statusEl) {
+  const lines = rawText.split('\n');
+  const header = lines[0];
+  const CHUNK_SIZE = 50; // עסקאות לכל קריאה
+  const dataLines = lines.slice(1).filter(l => l.trim());
+  const chunks = [];
+
+  for (let i = 0; i < dataLines.length; i += CHUNK_SIZE) {
+    chunks.push(dataLines.slice(i, i + CHUNK_SIZE));
+  }
+
+  let allRows = [];
+  for (let i = 0; i < chunks.length; i++) {
+    if (statusEl) statusEl.textContent = `מנתח עסקאות... (${i + 1}/${chunks.length})`;
+    const chunkText = header + '\n' + chunks[i].join('\n');
+    const rows = await parseTransactionsWithClaude(chunkText, filename);
+    allRows = allRows.concat(rows);
+  }
+  return allRows;
 }
 
 async function parseTransactionsWithClaude(rawText, filename) {
@@ -1516,56 +1559,4 @@ async function importTransactions() {
         body: JSON.stringify({
           action: 'addTransaction',
           ...row
-        })
-      });
-      const data = await res.json();
-      if (data.success) success++;
-    } catch {}
-  }
-
-  btn.textContent = '✅ ייבא עסקאות';
-  btn.disabled = false;
-  showToast(`יובאו ${success} עסקאות בהצלחה ✓`, 'success');
-  closeModal('upload-modal');
-  loadData();
-}
-
-// ====== UI UTILS ======
-function switchTab(tab) {
-  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
-  document.getElementById('tab-content-' + tab).classList.add('active');
-  document.getElementById('tab-' + tab).classList.add('active');
-  if (tab === 'charts') renderCharts();
-}
-
-function openModal(id) {
-  document.getElementById(id).classList.add('open');
-}
-
-function closeModal(id) {
-  document.getElementById(id).classList.remove('open');
-}
-
-document.querySelectorAll('.modal-overlay').forEach(el => {
-  el.addEventListener('click', e => {
-    if (e.target === el) el.classList.remove('open');
-  });
-});
-
-function showToast(msg, type = 'success') {
-  const container = document.getElementById('toast-container');
-  const toast = document.createElement('div');
-  toast.className = `toast ${type}`;
-  toast.textContent = msg;
-  container.appendChild(toast);
-  setTimeout(() => toast.remove(), 3500);
-}
-
-function formatMoney(n) {
-  return '₪' + parseFloat(n || 0).toLocaleString('he-IL', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-}
-</script>
-
-</body>
-</html>
+       
