@@ -1439,13 +1439,12 @@ async function readExcelFile(file) {
         const workbook = XLSX.read(data, { type: 'array', cellDates: true });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
-        // דלג על שורות כותרת ריקות (בנקים ישראליים מתחילים לרוב בשורה 5-10)
         const allRows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, dateNF: 'YYYY-MM-DD' });
-        // מצא את שורת הכותרות האמיתית (הראשונה עם יותר מ-3 תאים מלאים)
+        // מצא את שורת הכותרות – הראשונה שמכילה "תאריך" בתא הראשון
         let headerIdx = 0;
-        for (let i = 0; i < Math.min(15, allRows.length); i++) {
-          const filled = allRows[i].filter(c => c && String(c).trim()).length;
-          if (filled >= 3) { headerIdx = i; break; }
+        for (let i = 0; i < Math.min(20, allRows.length); i++) {
+          const first = String(allRows[i][0] || '').trim();
+          if (first === 'תאריך' || first.includes('תאריך')) { headerIdx = i; break; }
         }
         const rows = allRows.slice(headerIdx);
         // Convert to CSV-like text
