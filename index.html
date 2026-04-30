@@ -1470,7 +1470,6 @@ async function analyzePDFWithGemini(base64Data, filename) {
     body: JSON.stringify({
       action: 'analyzeFile',
       fileBase64: base64Data,
-      mimeType: 'application/pdf',
       filename: filename,
       categories: catList
     })
