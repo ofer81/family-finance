@@ -720,6 +720,56 @@
     .btn { flex: 1; justify-content: center; }
   }
 
+  /* INLINE EDITING */
+  .editable { cursor: pointer; }
+  .editable:hover { background: var(--card2); }
+
+  .inline-input {
+    background: var(--bg3);
+    border: 1px solid var(--accent2);
+    color: var(--text);
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-family: 'Heebo', sans-serif;
+    font-size: 13px;
+    width: 100%;
+    outline: none;
+  }
+
+  .inline-select {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-family: 'Heebo', sans-serif;
+    font-size: 12px;
+    cursor: pointer;
+    outline: none;
+    width: 100%;
+  }
+
+  .inline-select:focus { border-color: var(--accent2); }
+  .inline-select.income { color: var(--income); }
+  .inline-select.expense { color: var(--expense); }
+
+  /* RULES TAB */
+  .rules-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .rule-item {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .rule-text { font-size: 13px; color: var(--text); flex: 1; }
+  .rule-text span { color: var(--accent2); font-weight: 600; }
+
   /* SCROLLBAR */
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: var(--bg); }
@@ -802,6 +852,9 @@
   <button class="nav-btn" onclick="switchTab('charts')" id="tab-charts">
     📊 גרפים
   </button>
+  <button class="nav-btn" onclick="switchTab('rules')" id="tab-rules">
+    ⚙️ כללים
+  </button>
 </div>
 
 <!-- MAIN -->
@@ -882,6 +935,34 @@
         <div class="loading-state">
           <div class="spinner"></div>
           <p>טוען נתונים...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RULES TAB -->
+  <div class="tab-content" id="tab-content-rules">
+    <div class="table-wrap" style="margin-bottom:20px">
+      <div class="table-header-row">
+        <span class="table-title">⚙️ כללי סיווג אוטומטי</span>
+      </div>
+      <div style="padding:20px">
+        <p style="color:var(--text2);font-size:13px;margin-bottom:16px">
+          הגדר כללים שיסווגו עסקאות אוטומטית בעת ייבוא. לדוגמה: "קניית אש כספית" → חסכון.
+        </p>
+        <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap">
+          <input type="text" class="filter-input" id="rule-text" placeholder="טקסט לחיפוש בתיאור העסקה..." style="flex:2;min-width:200px">
+          <select class="filter-select" id="rule-type" style="flex:1;min-width:120px">
+            <option value="הוצאה">💸 הוצאה</option>
+            <option value="הכנסה">💰 הכנסה</option>
+            <option value="חסכון">🏦 חסכון</option>
+          </select>
+          <select class="filter-select" id="rule-cat" style="flex:1;min-width:120px">
+          </select>
+          <button class="btn btn-primary" onclick="addRule()">➕ הוסף כלל</button>
+        </div>
+        <div class="rules-list" id="rules-list">
+          <p style="color:var(--text3);font-size:13px">אין כללים עדיין</p>
         </div>
       </div>
     </div>
@@ -1008,11 +1089,67 @@ let categories = [];
 let selectedType = 'הוצאה';
 let parsedRows = [];
 
+// ====== RULES ======
+let rules = JSON.parse(localStorage.getItem('financeRules') || '[]');
+
+function saveRules() {
+  localStorage.setItem('financeRules', JSON.stringify(rules));
+}
+
+function addRule() {
+  const text = document.getElementById('rule-text').value.trim();
+  const type = document.getElementById('rule-type').value;
+  const cat = document.getElementById('rule-cat').value;
+  if (!text) { showToast('נא להכניס טקסט לחיפוש', 'error'); return; }
+  rules.push({ text, type, cat });
+  saveRules();
+  renderRules();
+  document.getElementById('rule-text').value = '';
+  showToast('הכלל נוסף ✓', 'success');
+}
+
+function deleteRule(idx) {
+  rules.splice(idx, 1);
+  saveRules();
+  renderRules();
+}
+
+function renderRules() {
+  const container = document.getElementById('rules-list');
+  if (!container) return;
+  if (!rules.length) {
+    container.innerHTML = '<p style="color:var(--text3);font-size:13px">אין כללים עדיין</p>';
+    return;
+  }
+  container.innerHTML = rules.map((r, i) => `
+    <div class="rule-item">
+      <div class="rule-text">
+        אם התיאור מכיל <span>"${r.text}"</span> → סווג כ-<span>${r.type}</span>
+        ${r.cat ? `בקטגוריה <span>${r.cat}</span>` : ''}
+      </div>
+      <button class="delete-btn" onclick="deleteRule(${i})">🗑️</button>
+    </div>`).join('');
+}
+
+function applyRulesToRows(rows) {
+  return rows.map(row => {
+    const desc = (row['תיאור'] || '').toLowerCase();
+    for (const rule of rules) {
+      if (desc.includes(rule.text.toLowerCase())) {
+        row['סוג'] = rule.type;
+        if (rule.cat) row['קטגוריה'] = rule.cat;
+      }
+    }
+    return row;
+  });
+}
+
 // ====== INIT ======
 window.addEventListener('DOMContentLoaded', () => {
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('new-date').value = today;
   loadData();
+  renderRules();
 });
 
 // ====== DATA ======
@@ -1037,6 +1174,12 @@ async function loadData(forceRefresh = false) {
       categories = catData.data || [];
       populateCategoryFilter();
       populateCategorySelect();
+      // Populate rule category select
+      const ruleCat = document.getElementById('rule-cat');
+      if (ruleCat) {
+        ruleCat.innerHTML = '<option value="">ללא קטגוריה ספציפית</option>' +
+          categories.map(c => `<option value="${c['קטגוריה']}">${c['קטגוריה']}</option>`).join('');
+      }
     }
 
     updateSummary();
@@ -1162,6 +1305,8 @@ function renderTable() {
 
   const sorted = [...filteredTransactions].sort((a, b) => new Date(b['תאריך']) - new Date(a['תאריך']));
 
+  const catOptions = categories.map(c => `<option value="${c['קטגוריה']}">${c['קטגוריה']}</option>`).join('');
+
   container.innerHTML = `
     <table>
       <thead>
@@ -1171,6 +1316,7 @@ function renderTable() {
           <th>קטגוריה</th>
           <th>סוג</th>
           <th>מקור</th>
+          <th>הערות</th>
           <th>סכום</th>
           <th></th>
         </tr>
@@ -1181,19 +1327,26 @@ function renderTable() {
           const amount = parseFloat(t['סכום'] || 0);
           const dateStr = t['תאריך'] ? new Date(t['תאריך']).toLocaleDateString('he-IL') : '';
           return `
-            <tr>
+            <tr data-row="${t._row}">
               <td data-label="תאריך">${dateStr}</td>
-              <td data-label="תיאור">${t['תיאור'] || ''}</td>
-              <td data-label="קטגוריה"><span class="cat-badge">${t['קטגוריה'] || ''}</span></td>
+              <td data-label="תיאור" class="editable" ondblclick="editCell(this, '${t._row}', 'תיאור', '${(t['תיאור']||'').replace(/'/g,"\'")}')">${t['תיאור'] || ''}</td>
+              <td data-label="קטגוריה">
+                <select class="inline-select" onchange="updateField(${t._row}, 'קטגוריה', this.value)">
+                  ${categories.map(c => `<option value="${c['קטגוריה']}" ${c['קטגוריה'] === t['קטגוריה'] ? 'selected' : ''}>${c['קטגוריה']}</option>`).join('')}
+                </select>
+              </td>
               <td data-label="סוג">
-                <span class="type-badge ${isIncome ? 'income' : 'expense'}">
-                  ${isIncome ? '💰' : '💸'} ${t['סוג'] || ''}
-                </span>
+                <select class="inline-select type-select ${isIncome ? 'income' : 'expense'}" onchange="updateField(${t._row}, 'סוג', this.value); this.className='inline-select type-select '+(this.value==='הכנסה'?'income':'expense')">
+                  <option value="הוצאה" ${t['סוג']==='הוצאה'?'selected':''}>💸 הוצאה</option>
+                  <option value="הכנסה" ${t['סוג']==='הכנסה'?'selected':''}>💰 הכנסה</option>
+                  <option value="חסכון" ${t['סוג']==='חסכון'?'selected':''}>🏦 חסכון</option>
+                </select>
               </td>
               <td data-label="מקור"><span class="source-text">${t['מקור'] || ''}</span></td>
+              <td data-label="הערות" class="editable" ondblclick="editCell(this, '${t._row}', 'הערות', '${(t['הערות']||'').replace(/'/g,"\'")}')">${t['הערות'] || '<span style=\"color:var(--text3);font-size:11px\">לחץ פעמיים</span>'}</td>
               <td data-label="סכום">
-                <span class="amount-cell ${isIncome ? 'income' : 'expense'}">
-                  ${isIncome ? '+' : '-'}${formatMoney(amount)}
+                <span class="amount-cell ${isIncome ? 'income' : t['סוג']==='חסכון' ? '' : 'expense'}">
+                  ${isIncome ? '+' : t['סוג']==='חסכון' ? '🏦' : '-'}${formatMoney(amount)}
                 </span>
               </td>
               <td>
@@ -1576,8 +1729,10 @@ async function importTransactions() {
   btn.textContent = 'מייבא...';
   btn.disabled = true;
 
+  // Apply rules before importing
+  const processedRows = applyRulesToRows([...parsedRows]);
   let success = 0;
-  for (const row of parsedRows) {
+  for (const row of processedRows) {
     try {
       const res = await fetch(SCRIPT_URL, {
         method: 'POST',
@@ -1599,12 +1754,59 @@ async function importTransactions() {
 }
 
 // ====== UI UTILS ======
+function editCell(td, row, field, currentVal) {
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'inline-input';
+  input.value = currentVal;
+  td.innerHTML = '';
+  td.appendChild(input);
+  input.focus();
+
+  const save = async () => {
+    const newVal = input.value;
+    td.textContent = newVal || '';
+    await updateField(row, field, newVal);
+  };
+
+  input.addEventListener('blur', save);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') input.blur();
+    if (e.key === 'Escape') { td.textContent = currentVal; }
+  });
+}
+
+async function updateField(row, field, value) {
+  try {
+    const res = await fetch(SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'updateTransaction',
+        row: row,
+        field: field,
+        value: value
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      // Update local data
+      const t = allTransactions.find(t => t._row == row);
+      if (t) t[field] = value;
+      updateSummary();
+      showToast('עודכן ✓', 'success');
+    }
+  } catch (err) {
+    showToast('שגיאה בעדכון', 'error');
+  }
+}
+
 function switchTab(tab) {
   document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
   document.getElementById('tab-content-' + tab).classList.add('active');
   document.getElementById('tab-' + tab).classList.add('active');
   if (tab === 'charts') renderCharts();
+  if (tab === 'rules') renderRules();
 }
 
 function openModal(id) {
