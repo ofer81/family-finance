@@ -7,6 +7,7 @@
 <title>ניהול פיננסי משפחתי</title>
 <link rel="manifest" href="manifest.json">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -1371,6 +1372,24 @@ function handleFileSelect(e) {
   if (file) processFile(file);
 }
 
+async function extractTextFromPDF(file) {
+  const pdfjsLib = window['pdfjs-dist/build/pdf'];
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  let fullText = '';
+
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const textContent = await page.getTextContent();
+    const pageText = textContent.items.map(item => item.str).join(' ');
+    fullText += pageText + '\n';
+  }
+
+  return fullText;
+}
+
 async function processFile(file) {
   const ext = file.name.split('.').pop().toLowerCase();
   const msg = document.getElementById('processing-msg');
@@ -1385,9 +1404,10 @@ async function processFile(file) {
     if (ext === 'csv') {
       csvText = await file.text();
     } else if (ext === 'pdf') {
-      text.textContent = 'מנתח PDF עם בינה מלאכותית...';
-      const base64 = await fileToBase64(file);
-      parsedRows = await analyzePDFWithGemini(base64, file.name);
+      text.textContent = 'קורא PDF...';
+      const pdfText = await extractTextFromPDF(file);
+      text.textContent = 'מנתח עסקאות...';
+      parsedRows = await parseInChunks(pdfText, file.name, text);
       msg.classList.remove('visible');
       if (parsedRows && parsedRows.length > 0) {
         showPreview(parsedRows);
