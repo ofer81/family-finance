@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- saved from url=(0050)file:///G:/My%20Drive/Downloads/finance-index.html -->
+<!-- saved from url=(0052)file:///G:/My%20Drive/Downloads/finance-index_1.html -->
 <html lang="he" dir="rtl"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -5759,7 +5759,46 @@
         <p style="color:var(--text3);font-size:11px;margin-bottom:16px">
           פורמט ייבוא: קובץ CSV עם שתי עמודות — שם קטגוריה, סוג (הוצאה/הכנסה/חסכון)
         </p>
-        <div id="cat-list" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+        <div id="cat-list" style="display:flex;flex-wrap:wrap;gap:8px">
+    <span class="cat-badge" style="padding:6px 12px;font-size:13px">
+      💸 מזון וסופרמרקט
+    </span>
+    <span class="cat-badge" style="padding:6px 12px;font-size:13px">
+      💸 דלק ורכב
+    </span>
+    <span class="cat-badge" style="padding:6px 12px;font-size:13px">
+      💸 ביטוח
+    </span>
+    <span class="cat-badge" style="padding:6px 12px;font-size:13px">
+      💸 חשבונות (חשמל/מים/גז)
+    </span>
+    <span class="cat-badge" style="padding:6px 12px;font-size:13px">
+      💸 בילויים ומסעדות
+    </span>
+    <span class="cat-badge" style="padding:6px 12px;font-size:13px">
+      💸 קניות ובגדים
+    </span>
+    <span class="cat-badge" style="padding:6px 12px;font-size:13px">
+      💸 בריאות ורפואה
+    </span>
+    <span class="cat-badge" style="padding:6px 12px;font-size:13px">
+      💸 חינוך
+    </span>
+    <span class="cat-badge" style="padding:6px 12px;font-size:13px">
+      💸 תחבורה ציבורית
+    </span>
+    <span class="cat-badge" style="padding:6px 12px;font-size:13px">
+      💸 הוצאה אחרת
+    </span>
+    <span class="cat-badge" style="padding:6px 12px;font-size:13px">
+      💰 משכורת
+    </span>
+    <span class="cat-badge" style="padding:6px 12px;font-size:13px">
+      💰 החזר מס
+    </span>
+    <span class="cat-badge" style="padding:6px 12px;font-size:13px">
+      💰 הכנסה אחרת
+    </span></div>
       </div>
     </div>
 
@@ -5793,7 +5832,32 @@
           <input type="number" class="filter-input" id="rule-amount-max" placeholder="סכום מקסימום..." style="flex:1;min-width:100px;display:none">
           <button class="btn btn-primary" onclick="addRule()">➕ הוסף כלל</button>
         </div>
-        <div class="rules-list" id="rules-list"><p style="color:var(--text3);font-size:13px">אין כללים עדיין</p></div>
+        <div style="margin-bottom:16px">
+          <button class="btn btn-secondary" onclick="applyRulesToAll()" style="border-color:var(--accent);color:var(--accent)">
+            ⚡ החל כללים על כל העסקאות הקיימות
+          </button>
+        </div>
+        <div class="rules-list" id="rules-list">
+    <div class="rule-item">
+      <div class="rule-text">
+        אם התיאור מכיל <span>"העברה לבנק אחר"</span> וסכום בדיוק <span>488₪</span> → סווג כ-<span>הוצאה</span>
+        בקטגוריה <span>חשבונות (חשמל/מים/גז)</span>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="delete-btn" onclick="editRule(0)" title="ערוך">✏️</button>
+        <button class="delete-btn" onclick="deleteRule(0)" title="מחק">🗑️</button>
+      </div>
+    </div>
+    <div class="rule-item">
+      <div class="rule-text">
+        אם התיאור מכיל <span>"העברה לבנק אחר"</span> וסכום בדיוק <span>-488₪</span> → סווג כ-<span>הוצאה</span>
+        בקטגוריה <span>החזר מס</span>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="delete-btn" onclick="editRule(1)" title="ערוך">✏️</button>
+        <button class="delete-btn" onclick="deleteRule(1)" title="מחק">🗑️</button>
+      </div>
+    </div></div>
       </div>
     </div>
   </div>
@@ -6089,9 +6153,65 @@ function addRule() {
 }
 
 function deleteRule(idx) {
+  if (!confirm('למחוק את הכלל?')) return;
   rules.splice(idx, 1);
   saveRules();
   renderRules();
+}
+
+function editRule(idx) {
+  const r = rules[idx];
+  // Populate form with rule values
+  document.getElementById('rule-text').value = r.text;
+  document.getElementById('rule-type').value = r.type;
+  document.getElementById('rule-cat').value = r.cat || '';
+  document.getElementById('rule-amount-op').value = r.amountOp || '';
+  document.getElementById('rule-amount-exact').value = r.amountVal || r.amountExact || '';
+  document.getElementById('rule-amount-max').value = r.amountMax || '';
+  toggleAmountFields();
+  // Remove old rule
+  rules.splice(idx, 1);
+  saveRules();
+  renderRules();
+  showToast('ערוך את הכלל ולחץ "הוסף כלל" לשמירה', 'success');
+  // Scroll to form
+  document.getElementById('rule-text').focus();
+}
+
+async function applyRulesToAll() {
+  if (!rules.length) { showToast('אין כללים מוגדרים', 'error'); return; }
+  if (!confirm('להחיל את כל הכללים על כל העסקאות הקיימות? פעולה זו תעדכן את הגיליון.')) return;
+
+  let updated = 0;
+  const toUpdate = [];
+
+  allTransactions.forEach(t => {
+    const desc = (t['תיאור'] || '').toLowerCase();
+    const amount = parseFloat(t['סכום'] || 0);
+    for (const rule of rules) {
+      if (!desc.includes(rule.text.toLowerCase())) continue;
+      if (rule.amountOp === 'exact' && rule.amountVal && Math.abs(amount - rule.amountVal) > 0.01) continue;
+      if (rule.amountOp === 'min' && rule.amountVal && amount < rule.amountVal) continue;
+      if (rule.amountOp === 'max' && rule.amountVal && amount > rule.amountVal) continue;
+      if (rule.amountOp === 'range' && rule.amountVal && rule.amountMax && (amount < rule.amountVal || amount > rule.amountMax)) continue;
+      if (!rule.amountOp && rule.amountExact && Math.abs(amount - rule.amountExact) > 0.01) continue;
+      toUpdate.push({ row: t._row, סוג: rule.type, קטגוריה: rule.cat || t['קטגוריה'] });
+      break;
+    }
+  });
+
+  if (!toUpdate.length) { showToast('אין עסקאות שמתאימות לכללים', 'error'); return; }
+
+  showToast(`מעדכן ${toUpdate.length} עסקאות...`, 'success');
+
+  for (const u of toUpdate) {
+    await updateField(u.row, 'סוג', u.סוג);
+    if (u.קטגוריה) await updateField(u.row, 'קטגוריה', u.קטגוריה);
+    updated++;
+  }
+
+  showToast(`עודכנו ${updated} עסקאות ✓`, 'success');
+  await loadData();
 }
 
 function renderRules() {
@@ -6114,7 +6234,10 @@ function renderRules() {
         אם התיאור מכיל <span>"${r.text}"</span>${amountStr} → סווג כ-<span>${r.type}</span>
         ${r.cat ? `בקטגוריה <span>${r.cat}</span>` : ''}
       </div>
-      <button class="delete-btn" onclick="deleteRule(${i})">🗑️</button>
+      <div style="display:flex;gap:6px">
+        <button class="delete-btn" onclick="editRule(${i})" title="ערוך">✏️</button>
+        <button class="delete-btn" onclick="deleteRule(${i})" title="מחק">🗑️</button>
+      </div>
     </div>`;
   }).join('');
 }
