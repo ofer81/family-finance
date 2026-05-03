@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- saved from url=(0052)file:///G:/My%20Drive/Downloads/finance-index_3.html -->
+<!-- saved from url=(0052)file:///G:/My%20Drive/Downloads/finance-index_4.html -->
 <html lang="he" dir="rtl"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -6893,10 +6893,13 @@ async function updateField(row, field, value) {
     });
     const data = await res.json();
     if (data.success) {
-      // Update local data
-      const t = allTransactions.find(t => t._row == row);
-      if (t) t[field] = value;
+      // Update both allTransactions and filteredTransactions
+      const t1 = allTransactions.find(t => t._row == row);
+      if (t1) t1[field] = value;
+      const t2 = filteredTransactions.find(t => t._row == row);
+      if (t2) t2[field] = value;
       updateSummary();
+      renderTable();
     }
   } catch (err) {
     showToast('שגיאה בעדכון', 'error');
