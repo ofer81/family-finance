@@ -1630,13 +1630,15 @@ async function parseInChunks(rawText, filename, statusEl) {
 
 async function parseTransactionsWithAI(rawText, filename) {
   const catList = categories.map(c => c['קטגוריה']).join(', ');
+  const sourceHint = 'כרטיס המסתיים ב-2274 = אשראי מורן. כרטיס המסתיים ב-0159 = אשראי עופר. אם לא ניתן לזהות = אשראי.';
   const response = await fetch(SCRIPT_URL, {
     method: 'POST',
     body: JSON.stringify({
       action: 'analyzeFile',
       rawText: rawText,
       filename: filename,
-      categories: catList
+      categories: catList,
+      sourceHint: sourceHint
     })
   });
   const data = await response.json();
@@ -1730,10 +1732,4 @@ function showToast(msg, type = 'success') {
   setTimeout(() => toast.remove(), 3500);
 }
 
-function formatMoney(n) {
-  return '₪' + parseFloat(n || 0).toLocaleString('he-IL', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-}
-</script>
-
-</body>
-</html>
+function formatMoney
