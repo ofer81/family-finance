@@ -1648,36 +1648,52 @@ async function parseTransactionsWithAI(rawText, filename) {
 
 function showPreview(rows) {
   const container = document.getElementById('upload-preview');
-  container.innerHTML = `
-    <div class="upload-preview">
-      <div class="upload-preview-title">
-        <span>נמצאו ${rows.length} עסקאות</span>
-        <span style="color:var(--text3);font-size:11px">בדוק לפני ייבוא</span>
-      </div>
-      <div class="preview-table-wrap">
-        <table class="preview-table">
-          <thead>
-            <tr>
-              <th>תאריך</th>
-              <th>תיאור</th>
-              <th>קטגוריה</th>
-              <th>סוג</th>
-              <th>סכום</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows.map(r => `
-              <tr class="${r['סוג'] === 'הכנסה' ? 'income-row' : 'expense-row'}">
-                <td>${r['תאריך'] || ''}</td>
-                <td>${r['תיאור'] || ''}</td>
-                <td>${r['קטגוריה'] || ''}</td>
-                <td>${r['סוג'] || ''}</td>
-                <td class="amount-col">${formatMoney(r['סכום'] || 0)}</td>
-              </tr>`).join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>`;
+  const duplicateCount = rows.filter(r => isDuplicate(r)).length;
+  const newCount = rows.length - duplicateCount;
+
+  const dupLabel = duplicateCount > 0
+    ? `✅ ${newCount} חדשות &nbsp;|&nbsp; <span style="color:var(--warning)">⚠️ ${duplicateCount} כפילויות</span>`
+    : '✅ הכל חדש';
+
+  const rowsHtml = rows.map(r => {
+    const dup = isDuplicate(r);
+    return '<tr class="' + (r['סוג'] === 'הכנסה' ? 'income-row' : 'expense-row') + '"'
+      + (dup ? ' style="opacity:0.4"' : '') + '>'
+      + '<td>' + (r['תאריך'] || '') + '</td>'
+      + '<td>' + (r['תיאור'] || '') + '</td>'
+      + '<td>' + (r['קטגוריה'] || '') + '</td>'
+      + '<td>' + (r['סוג'] || '') + '</td>'
+      + '<td class="amount-col">' + formatMoney(r['סכום'] || 0) + '</td>'
+      + '<td style="font-size:11px;color:var(--warning)">' + (dup ? 'כפיל' : '') + '</td>'
+      + '</tr>';
+  }).join('');
+
+  container.innerHTML =
+    '<div class="upload-preview">'
+    + '<div class="upload-preview-title">'
+    + '<span>נמצאו ' + rows.length + ' עסקאות</span>'
+    + '<span style="color:var(--text3);font-size:11px">' + dupLabel + '</span>'
+    + '</div>'
+    + '<div class="preview-table-wrap">'
+    + '<table class="preview-table">'
+    + '<thead><tr>'
+    + '<th>תאריך</th><th>תיאור</th><th>קטגוריה</th><th>סוג</th><th>סכום</th><th></th>'
+    + '</tr></thead>'
+    + '<tbody>' + rowsHtml + '</tbody>'
+    + '</table></div></div>';
+}
+
+
+function isDuplicate(row) {
+  const rowDate = (row['תאריך'] || '').toString().trim();
+  const rowAmount = parseFloat(row['סכום'] || 0);
+  const rowDesc = (row['תיאור'] || '').trim().toLowerCase();
+  return allTransactions.some(t => {
+    const tDate = (t['תאריך'] || '').toString().trim();
+    const tAmount = parseFloat(t['סכום'] || 0);
+    const tDesc = (t['תיאור'] || '').trim().toLowerCase();
+    return tDate === rowDate && tAmount === rowAmount && tDesc === rowDesc;
+  });
 }
 
 async function importTransactions() {
@@ -1687,8 +1703,11 @@ async function importTransactions() {
   btn.disabled = true;
 
   const processedRows = applyRulesToRows([...parsedRows]);
+  const newRows = processedRows.filter(row => !isDuplicate(row));
+  const skipped = processedRows.length - newRows.length;
+
   let success = 0;
-  for (const row of processedRows) {
+  for (const row of newRows) {
     try {
       const res = await fetch(SCRIPT_URL, {
         method: 'POST',
@@ -1701,7 +1720,15 @@ async function importTransactions() {
 
   btn.textContent = '✅ ייבא עסקאות';
   btn.disabled = false;
-  showToast(`יובאו ${success} עסקאות בהצלחה ✓`, 'success');
+
+  if (skipped > 0 && success === 0) {
+    showToast(`כל העסקאות כבר קיימות — אין מה לייבא`, 'error');
+  } else if (skipped > 0) {
+    showToast(`יובאו ${success} עסקאות ✓ (דולגו ${skipped} כפילויות)`, 'success');
+  } else {
+    showToast(`יובאו ${success} עסקאות בהצלחה ✓`, 'success');
+  }
+
   closeModal('upload-modal');
   loadData();
 }
