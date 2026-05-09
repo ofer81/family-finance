@@ -1603,34 +1603,15 @@ async function readExcelAsCSV(file) {
 }
 
 async function parseInChunks(rawText, filename, statusEl) {
-  const lines = rawText.split('\n');
-  const header = lines[0];
-  const CHUNK_SIZE = 50;
-  const dataLines = lines.slice(1).filter(l => l.trim());
-  const chunks = [];
-
-  for (let i = 0; i < dataLines.length; i += CHUNK_SIZE) {
-    chunks.push(dataLines.slice(i, i + CHUNK_SIZE));
-  }
-
-  // אם אין שורות נתונים (PDF), שלח את הכל כטקסט אחד
-  if (!chunks.length) {
-    chunks.push(lines);
-  }
-
-  let allRows = [];
-  for (let i = 0; i < chunks.length; i++) {
-    if (statusEl) statusEl.textContent = `מנתח עסקאות... (${i + 1}/${chunks.length})`;
-    const chunkText = chunks.length === 1 ? rawText : (header + '\n' + chunks[i].join('\n'));
-    const rows = await parseTransactionsWithAI(chunkText, filename);
-    allRows = allRows.concat(rows);
-  }
-  return allRows;
+  if (statusEl) statusEl.textContent = 'מנתח עסקאות עם בינה מלאכותית...';
+  // שלח את כל הקובץ בפעם אחת — חשוב לקבצים עם מספר כרטיסים
+  const rows = await parseTransactionsWithAI(rawText, filename);
+  return rows;
 }
 
 async function parseTransactionsWithAI(rawText, filename) {
   const catList = categories.map(c => c['קטגוריה']).join(', ');
-  const sourceHint = 'כרטיס המסתיים ב-2274 = אשראי מורן. כרטיס המסתיים ב-0159 = אשראי עופר. אם לא ניתן לזהות = אשראי.';
+  const sourceHint = 'הקובץ מכיל שני כרטיסים. כל קבוצת עסקאות מקודמת שורה שמתארת את הכרטיס בפורמט: "ארבע ספרות אחרונות XXXX". אם מסתיים ב-2274 = מקור: "אשראי מורן". אם מסתיים ב-0159 = מקור: "אשראי עופר". חשוב: יש לזהות איזה כרטיס שייך לכל עסקה לפי השורה המתארת הקרובה ביותר מעליה.';
   const response = await fetch(SCRIPT_URL, {
     method: 'POST',
     body: JSON.stringify({
@@ -1715,27 +1696,31 @@ async function importTransactions() {
   const newRows = processedRows.filter(row => !isDuplicate(row));
   const skipped = processedRows.length - newRows.length;
 
-  let success = 0;
-  for (const row of newRows) {
-    try {
-      const res = await fetch(SCRIPT_URL, {
-        method: 'POST',
-        body: JSON.stringify({ action: 'addTransaction', ...row })
-      });
-      const data = await res.json();
-      if (data.success) success++;
-    } catch {}
-  }
-
   btn.textContent = '✅ ייבא עסקאות';
   btn.disabled = false;
 
-  if (skipped > 0 && success === 0) {
-    showToast(`כל העסקאות כבר קיימות — אין מה לייבא`, 'error');
-  } else if (skipped > 0) {
-    showToast(`יובאו ${success} עסקאות ✓ (דולגו ${skipped} כפילויות)`, 'success');
-  } else {
-    showToast(`יובאו ${success} עסקאות בהצלחה ✓`, 'success');
+  if (skipped > 0 && newRows.length === 0) {
+    showToast('כל העסקאות כבר קיימות — אין מה לייבא', 'error');
+    return;
+  }
+
+  try {
+    const res = await fetch(SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'batchAdd', rows: newRows })
+    });
+    const data = await res.json();
+    if (data.success) {
+      if (skipped > 0) {
+        showToast('יובאו ' + data.added + ' עסקאות ✓ (דולגו ' + skipped + ' כפילויות)', 'success');
+      } else {
+        showToast('יובאו ' + data.added + ' עסקאות בהצלחה ✓', 'success');
+      }
+    } else {
+      showToast('שגיאה: ' + (data.error || ''), 'error');
+    }
+  } catch (err) {
+    showToast('שגיאת רשת', 'error');
   }
 
   closeModal('upload-modal');
