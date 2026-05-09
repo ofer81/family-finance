@@ -1660,35 +1660,61 @@ async function readExcelAsCSV(file) {
   });
 }
 
-async function parseInChunks(rawText, filename, statusEl) {
+function extractCreditCardSections(rawText) {
+  const chargeMatch = rawText.match(/פרוט פעולותיך לתאריך[:\s]+([\d\/]+)/);
+  const chargeDate = chargeMatch ? 'תאריך חיוב: ' + chargeMatch[1] : '';
+  const cardMatch = rawText.match(/כרטיס שמסתיים בספרות[:\s]*(\d{4})|ארבע ספרות אחרונות[:\s]*(\d{4})/);
+  const cardNum = cardMatch ? 'מספר כרטיס: ' + (cardMatch[1] || cardMatch[2]) : '';
+
+  const sectionPatterns = [
+    /רכישות בחו["“״]ל/,
+    /עסקאות שחויבו/,
+    /עסקות שחויבו/,
+    /עסקאות שזוכו/,
+    /עסקאות בארץ/
+  ];
+
   const lines = rawText.split('\n');
-  const CHUNK_SIZE = 90; // שורות לכל chunk
-  
-  // זיהוי שורות כותרת (כרטיס/בנק) לשמירה עם כל chunk
-  const headerLines = [];
-  lines.forEach((line, i) => {
-    if (line.includes('ארבע ספרות') || 
-        line.includes('חשבון כרטיס') ||
-        line.includes('חשבון בנק') ||
-        line.includes('מספר חשבון')) {
-      headerLines.push(line);
+  let inSection = false;
+  let sectionLines = [];
+  const sections = [];
+
+  lines.forEach(line => {
+    const isSectionHeader = sectionPatterns.some(p => p.test(line));
+    if (isSectionHeader) {
+      if (sectionLines.length > 0) sections.push(sectionLines.join('\n'));
+      sectionLines = [line];
+      inSection = true;
+    } else if (inSection) {
+      sectionLines.push(line);
     }
   });
+  if (sectionLines.length > 0) sections.push(sectionLines.join('\n'));
+  if (sections.length === 0) return rawText;
+  return [chargeDate, cardNum, ...sections].filter(Boolean).join('\n\n');
+}
+
+async function parseInChunks(rawText, filename, statusEl) {
+  const cleanText = extractCreditCardSections(rawText);
+  const lines = cleanText.split('\n');
+  const CHUNK_SIZE = 90;
+
+  const headerLines = lines.filter(l =>
+    l.includes('תאריך חיוב') || l.includes('מספר כרטיס') ||
+    l.includes('2274') || l.includes('0159') || l.includes('543-112678')
+  );
   const cardHeader = headerLines.join('\n');
 
-  // חלק לchunks
   const dataLines = lines.filter(l => l.trim());
   const chunks = [];
   for (let i = 0; i < dataLines.length; i += CHUNK_SIZE) {
     chunks.push(dataLines.slice(i, i + CHUNK_SIZE));
   }
-
   if (chunks.length === 0) return [];
 
   let allRows = [];
   for (let i = 0; i < chunks.length; i++) {
     if (statusEl) statusEl.textContent = 'מנתח עסקאות... (חלק ' + (i+1) + ' מתוך ' + chunks.length + ')';
-    // הוסף את כותרות הכרטיס לכל chunk
     const chunkText = (cardHeader ? cardHeader + '\n' : '') + chunks[i].join('\n');
     try {
       const rows = await parseTransactionsWithAI(chunkText, filename);
@@ -1699,7 +1725,6 @@ async function parseInChunks(rawText, filename, statusEl) {
   }
   return allRows;
 }
-
 async function parseTransactionsWithAI(rawText, filename) {
   const catList = categories.map(c => c['קטגוריה']).join(', ');
   const sourceHint = 'הקובץ מכיל שני כרטיסים. כל קבוצת עסקאות מקודמת שורה שמתארת את הכרטיס בפורמט: "ארבע ספרות אחרונות XXXX". אם מסתיים ב-2274 = מקור: "אשראי מורן". אם מסתיים ב-0159 = מקור: "אשראי עופר". חשוב: יש לזהות איזה כרטיס שייך לכל עסקה לפי השורה המתארת הקרובה ביותר מעליה.';
