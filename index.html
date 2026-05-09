@@ -1683,6 +1683,7 @@ function showPreview(rows) {
       + '<td>' + (r['תיאור'] || '') + '</td>'
       + '<td>' + (r['קטגוריה'] || '') + '</td>'
       + '<td>' + (r['סוג'] || '') + '</td>'
+      + '<td>' + (r['מקור'] || '') + '</td>'
       + '<td class="amount-col">' + formatMoney(r['סכום'] || 0) + '</td>'
       + '<td style="font-size:11px;color:var(--warning)">' + (dup ? 'כפיל' : '') + '</td>'
       + '</tr>';
@@ -1701,7 +1702,7 @@ function showPreview(rows) {
     + '<div class="preview-table-wrap">'
     + '<table class="preview-table">'
     + '<thead><tr>'
-    + '<th>תאריך</th><th>תיאור</th><th>קטגוריה</th><th>סוג</th><th>סכום</th><th></th>'
+    + '<th>תאריך חיוב</th><th>תאריך עסקה</th><th>תיאור</th><th>קטגוריה</th><th>סוג</th><th>מקור</th><th>סכום</th><th></th>'
     + '</tr></thead>'
     + '<tbody>' + rowsHtml + '</tbody>'
     + '</table></div></div>';
