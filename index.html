@@ -1684,12 +1684,17 @@ function showPreview(rows) {
 }
 
 
+function normalizeDate(d) {
+  if (!d) return '';
+  return new Date(d).toISOString().split('T')[0];
+}
+
 function isDuplicate(row) {
-  const rowDate = (row['תאריך'] || '').toString().trim();
+  const rowDate = normalizeDate(row['תאריך']);
   const rowAmount = parseFloat(row['סכום'] || 0);
   const rowDesc = (row['תיאור'] || '').trim().toLowerCase();
   return allTransactions.some(t => {
-    const tDate = (t['תאריך'] || '').toString().trim();
+    const tDate = normalizeDate(t['תאריך']);
     const tAmount = parseFloat(t['סכום'] || 0);
     const tDesc = (t['תיאור'] || '').trim().toLowerCase();
     return tDate === rowDate && tAmount === rowAmount && tDesc === rowDesc;
