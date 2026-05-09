@@ -1681,12 +1681,23 @@ function extractCreditCardSections(rawText) {
 
   lines.forEach(line => {
     const isSectionHeader = sectionPatterns.some(p => p.test(line));
+    const isSummary = /סה["“״]כ חיוב/.test(line);
+    const isFooter = /מסגרת הכרטיס|תנאי האשראי|ריבית שנתית/.test(line);
+
     if (isSectionHeader) {
       if (sectionLines.length > 0) sections.push(sectionLines.join('\n'));
       sectionLines = [line];
       inSection = true;
-    } else if (inSection) {
-      sectionLines.push(line);
+    } else if (inSection && !isFooter) {
+      if (isSummary) {
+        // הוסף שורת סה"כ ואז סגור את הסעיף
+        sectionLines.push(line);
+        sections.push(sectionLines.join('\n'));
+        sectionLines = [];
+        inSection = false;
+      } else {
+        sectionLines.push(line);
+      }
     }
   });
   if (sectionLines.length > 0) sections.push(sectionLines.join('\n'));
