@@ -1588,13 +1588,8 @@ async function readExcelAsCSV(file) {
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
         const allRows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, dateNF: 'YYYY-MM-DD' });
-        let headerIdx = 0;
-        for (let i = 0; i < Math.min(20, allRows.length); i++) {
-          const first = String(allRows[i][0] || '').trim();
-          if (first === 'תאריך' || first.includes('תאריך')) { headerIdx = i; break; }
-        }
-        const rows = allRows.slice(headerIdx);
-        resolve(rows.map(row => row.join('\t')).join('\n'));
+        // שלח את כל השורות כולל שורות כותרת הכרטיס
+        resolve(allRows.map(row => row.join('\t')).join('\n'));
       } catch (err) { reject(err); }
     };
     reader.onerror = reject;
