@@ -1702,7 +1702,18 @@ function extractCreditCardSections(rawText) {
   });
   if (sectionLines.length > 0) sections.push(sectionLines.join('\n'));
   if (sections.length === 0) return rawText;
-  return [chargeDate, cardNum, ...sections].filter(Boolean).join('\n\n');
+  // נקה שורות זיכוי — הסר את הסכום החיובי הכפול
+  const cleanedSections = sections.map(section => {
+    return section.split('\n').map(line => {
+      // שורת זיכוי: יש שני סכומים ומילת "זיכוי" — הסר את הסכום החיובי הראשון
+      if (line.includes('זיכוי') && /\d+\.\d+\s+-\d+/.test(line)) {
+        return line.replace(/(\d+\.\d+)\s+(-\d+\.\d+)/, '$2');
+      }
+      return line;
+    }).join('\n');
+  });
+
+  return [chargeDate, cardNum, ...cleanedSections].filter(Boolean).join('\n\n');
 }
 
 async function parseInChunks(rawText, filename, statusEl) {
