@@ -1774,8 +1774,9 @@ function showPreview(rows) {
     ? `✅ ${newCount} חדשות &nbsp;|&nbsp; <span style="color:var(--warning)">⚠️ ${duplicateCount} כפילויות</span>`
     : '✅ הכל חדש';
 
-  const totalExpense = rows.filter(r => r['סוג'] !== 'הכנסה').reduce((s, r) => s + parseFloat(r['סכום'] || 0), 0);
+  const totalExpense = rows.filter(r => r['סוג'] === 'הוצאה').reduce((s, r) => s + parseFloat(r['סכום'] || 0), 0);
   const totalIncome = rows.filter(r => r['סוג'] === 'הכנסה').reduce((s, r) => s + parseFloat(r['סכום'] || 0), 0);
+  const netExpense = totalExpense - totalIncome;
 
   const rowsHtml = rows.map((r, i) => {
     const dup = isDuplicate(r);
@@ -1800,7 +1801,8 @@ function showPreview(rows) {
     + '<span style="color:var(--text3);font-size:11px">' + dupLabel + '</span>'
     + '</div>'
     + '<div style="display:flex;gap:16px;padding:8px 0;border-bottom:1px solid var(--border);margin-bottom:8px;font-size:13px">'
-    + '<span>סה"כ הוצאות: <strong style="color:var(--expense)">' + formatMoney(totalExpense) + '</strong></span>'
+    + '<span>סה"כ לתשלום: <strong style="color:var(--expense)">' + formatMoney(netExpense) + '</strong></span>'
+    + (totalIncome > 0 ? ' <span style="font-size:11px;color:var(--text3)">(הוצאות ' + formatMoney(totalExpense) + ' פחות זיכויים ' + formatMoney(totalIncome) + ')</span>' : '')
     + (totalIncome > 0 ? '<span>סה"כ הכנסות: <strong style="color:var(--income)">' + formatMoney(totalIncome) + '</strong></span>' : '')
     + '</div>'
     + '<div class="preview-table-wrap">'
