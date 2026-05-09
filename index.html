@@ -1567,12 +1567,39 @@ async function extractTextFromPDF(file) {
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   let fullText = '';
+
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const textContent = await page.getTextContent();
-    const pageText = textContent.items.map(item => item.str).join(' ');
-    fullText += pageText + '\n';
+    const viewport = page.getViewport({ scale: 1 });
+
+    // מיין פריטים לפי מיקום Y (שורה) ואז X
+    const items = textContent.items
+      .filter(item => item.str.trim())
+      .map(item => ({
+        str: item.str,
+        x: item.transform[4],
+        y: Math.round(viewport.height - item.transform[5]) // הפוך Y כי PDF מחשב מלמטה
+      }));
+
+    // קבץ לפי שורה (Y דומה = אותה שורה)
+    const rows = {};
+    items.forEach(item => {
+      const rowKey = Math.round(item.y / 5) * 5; // עגל ל-5 פיקסלים
+      if (!rows[rowKey]) rows[rowKey] = [];
+      rows[rowKey].push(item);
+    });
+
+    // מיין שורות לפי Y ובנה טקסט
+    const sortedRows = Object.keys(rows).sort((a, b) => a - b);
+    sortedRows.forEach(rowKey => {
+      const rowItems = rows[rowKey].sort((a, b) => b.x - a.x); // RTL - מימין לשמאל
+      fullText += rowItems.map(item => item.str).join(' ') + '\n';
+    });
+
+    fullText += '\n'; // הפרדה בין עמודים
   }
+
   return fullText;
 }
 
