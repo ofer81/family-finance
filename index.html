@@ -1571,78 +1571,24 @@ async function extractTextFromPDF(file) {
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const textContent = await page.getTextContent();
-    const viewport = page.getViewport({ scale: 1 });
+    let lastY = null;
+    let line = '';
 
-    // מיין פריטים לפי מיקום Y (שורה) ואז X
-    const items = textContent.items
-      .filter(item => item.str.trim())
-      .map(item => ({
-        str: item.str,
-        x: item.transform[4],
-        y: Math.round(viewport.height - item.transform[5]) // הפוך Y כי PDF מחשב מלמטה
-      }));
-
-    // קבץ לפי שורה (Y דומה = אותה שורה)
-    const rows = {};
-    items.forEach(item => {
-      const rowKey = Math.round(item.y / 5) * 5; // עגל ל-5 פיקסלים
-      if (!rows[rowKey]) rows[rowKey] = [];
-      rows[rowKey].push(item);
+    textContent.items.forEach(item => {
+      const y = Math.round(item.transform[5]);
+      if (lastY !== null && Math.abs(y - lastY) > 3) {
+        fullText += line.trim() + '\n';
+        line = '';
+      }
+      line += item.str + ' ';
+      lastY = y;
     });
 
-    // מיין שורות לפי Y ובנה טקסט
-    const sortedRows = Object.keys(rows).sort((a, b) => a - b);
-    sortedRows.forEach(rowKey => {
-      const rowItems = rows[rowKey].sort((a, b) => b.x - a.x); // RTL - מימין לשמאל
-      fullText += rowItems.map(item => item.str).join(' ') + '\n';
-    });
-
-    fullText += '\n'; // הפרדה בין עמודים
+    if (line.trim()) fullText += line.trim() + '\n';
+    fullText += '\n';
   }
 
   return fullText;
-}
-
-async function processSingleFile(file, statusEl) {
-  const ext = file.name.split('.').pop().toLowerCase();
-  let rawText = '';
-
-  if (ext === 'csv') {
-    rawText = await file.text();
-  } else if (ext === 'pdf') {
-    if (statusEl) statusEl.textContent = 'קורא PDF...';
-    rawText = await extractTextFromPDF(file);
-  } else if (ext === 'xlsx' || ext === 'xls') {
-    if (statusEl) statusEl.textContent = 'קורא קובץ אקסל...';
-    rawText = await readExcelAsCSV(file);
-  } else {
-    throw new Error('סוג קובץ לא נתמך');
-  }
-
-  if (statusEl) statusEl.textContent = 'מנתח עסקאות עם בינה מלאכותית...';
-  return await parseInChunks(rawText, file.name, statusEl);
-}
-
-async function processFile(file) {
-  const msg = document.getElementById('processing-msg');
-  const statusEl = document.getElementById('processing-text');
-  msg.classList.add('visible');
-  statusEl.textContent = 'קורא את הקובץ...';
-
-  try {
-    parsedRows = await processSingleFile(file, statusEl);
-    msg.classList.remove('visible');
-
-    if (parsedRows.length > 0) {
-      showPreview(parsedRows);
-      document.getElementById('import-btn').style.display = 'flex';
-    } else {
-      showToast('לא נמצאו עסקאות בקובץ', 'error');
-    }
-  } catch (err) {
-    msg.classList.remove('visible');
-    showToast('שגיאה בניתוח הקובץ: ' + err.message, 'error');
-  }
 }
 
 async function readExcelAsCSV(file) {
