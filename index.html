@@ -1561,6 +1561,48 @@ async function processMultipleFiles(files) {
   }
 }
 
+async function processSingleFile(file, statusEl) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  let rawText = '';
+
+  if (ext === 'csv') {
+    rawText = await file.text();
+  } else if (ext === 'pdf') {
+    if (statusEl) statusEl.textContent = 'קורא PDF...';
+    rawText = await extractTextFromPDF(file);
+  } else if (ext === 'xlsx' || ext === 'xls') {
+    if (statusEl) statusEl.textContent = 'קורא קובץ אקסל...';
+    rawText = await readExcelAsCSV(file);
+  } else {
+    throw new Error('סוג קובץ לא נתמך');
+  }
+
+  if (statusEl) statusEl.textContent = 'מנתח עסקאות עם בינה מלאכותית...';
+  return await parseInChunks(rawText, file.name, statusEl);
+}
+
+async function processFile(file) {
+  const msg = document.getElementById('processing-msg');
+  const statusEl = document.getElementById('processing-text');
+  msg.classList.add('visible');
+  statusEl.textContent = 'קורא את הקובץ...';
+
+  try {
+    parsedRows = await processSingleFile(file, statusEl);
+    msg.classList.remove('visible');
+
+    if (parsedRows.length > 0) {
+      showPreview(parsedRows);
+      document.getElementById('import-btn').style.display = 'flex';
+    } else {
+      showToast('לא נמצאו עסקאות בקובץ', 'error');
+    }
+  } catch (err) {
+    msg.classList.remove('visible');
+    showToast('שגיאה בניתוח הקובץ: ' + err.message, 'error');
+  }
+}
+
 async function extractTextFromPDF(file) {
   const pdfjsLib = window['pdfjs-dist/build/pdf'];
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
