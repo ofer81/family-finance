@@ -832,7 +832,7 @@
         <h3>גרור קובץ לכאן או לחץ לבחירה</h3>
         <p>PDF / CSV / Excel מבנק או חברת אשראי</p>
       </div>
-      <input type="file" id="file-input" accept=".csv,.xlsx,.xls,.pdf" style="display:none" onchange="handleFileSelect(event)">
+      <input type="file" id="file-input" accept=".csv,.xlsx,.xls,.pdf" style="display:none" onchange="handleFileSelect(event)" multiple>
 
       <div class="processing-msg" id="processing-msg">
         <div class="mini-spinner"></div>
@@ -1516,10 +1516,40 @@ function handleDrop(e) {
   if (file) processFile(file);
 }
 
-function handleFileSelect(e) {
-  const file = e.target.files[0];
-  if (file) processFile(file);
+async function handleFileSelect(e) {
+  const files = Array.from(e.target.files);
+  if (!files.length) return;
+  if (files.length === 1) {
+    processFile(files[0]);
+  } else {
+    await processMultipleFiles(files);
+  }
   e.target.value = '';
+}
+
+async function processMultipleFiles(files) {
+  const msg = document.getElementById('processing-msg');
+  const statusEl = document.getElementById('processing-text');
+  msg.classList.add('visible');
+  parsedRows = [];
+
+  for (let i = 0; i < files.length; i++) {
+    statusEl.textContent = 'קורא קובץ ' + (i + 1) + ' מתוך ' + files.length + '...';
+    try {
+      const rows = await processSingleFile(files[i], statusEl);
+      parsedRows = parsedRows.concat(rows);
+    } catch (err) {
+      showToast('שגיאה בקובץ ' + files[i].name + ': ' + err.message, 'error');
+    }
+  }
+
+  msg.classList.remove('visible');
+  if (parsedRows.length > 0) {
+    showPreview(parsedRows);
+    document.getElementById('import-btn').style.display = 'flex';
+  } else {
+    showToast('לא נמצאו עסקאות', 'error');
+  }
 }
 
 async function extractTextFromPDF(file) {
@@ -1537,33 +1567,34 @@ async function extractTextFromPDF(file) {
   return fullText;
 }
 
-async function processFile(file) {
+async function processSingleFile(file, statusEl) {
   const ext = file.name.split('.').pop().toLowerCase();
-  const msg = document.getElementById('processing-msg');
-  const text = document.getElementById('processing-text');
+  let rawText = '';
 
+  if (ext === 'csv') {
+    rawText = await file.text();
+  } else if (ext === 'pdf') {
+    if (statusEl) statusEl.textContent = 'קורא PDF...';
+    rawText = await extractTextFromPDF(file);
+  } else if (ext === 'xlsx' || ext === 'xls') {
+    if (statusEl) statusEl.textContent = 'קורא קובץ אקסל...';
+    rawText = await readExcelAsCSV(file);
+  } else {
+    throw new Error('סוג קובץ לא נתמך');
+  }
+
+  if (statusEl) statusEl.textContent = 'מנתח עסקאות עם בינה מלאכותית...';
+  return await parseInChunks(rawText, file.name, statusEl);
+}
+
+async function processFile(file) {
+  const msg = document.getElementById('processing-msg');
+  const statusEl = document.getElementById('processing-text');
   msg.classList.add('visible');
-  text.textContent = 'קורא את הקובץ...';
+  statusEl.textContent = 'קורא את הקובץ...';
 
   try {
-    let rawText = '';
-
-    if (ext === 'csv') {
-      rawText = await file.text();
-    } else if (ext === 'pdf') {
-      text.textContent = 'קורא PDF...';
-      rawText = await extractTextFromPDF(file);
-    } else if (ext === 'xlsx' || ext === 'xls') {
-      text.textContent = 'קורא קובץ אקסל...';
-      rawText = await readExcelAsCSV(file);
-    } else {
-      showToast('סוג קובץ לא נתמך', 'error');
-      msg.classList.remove('visible');
-      return;
-    }
-
-    text.textContent = 'מנתח עסקאות עם בינה מלאכותית...';
-    parsedRows = await parseInChunks(rawText, file.name, text);
+    parsedRows = await processSingleFile(file, statusEl);
     msg.classList.remove('visible');
 
     if (parsedRows.length > 0) {
@@ -1631,6 +1662,9 @@ function showPreview(rows) {
     ? `✅ ${newCount} חדשות &nbsp;|&nbsp; <span style="color:var(--warning)">⚠️ ${duplicateCount} כפילויות</span>`
     : '✅ הכל חדש';
 
+  const totalExpense = rows.filter(r => r['סוג'] !== 'הכנסה').reduce((s, r) => s + parseFloat(r['סכום'] || 0), 0);
+  const totalIncome = rows.filter(r => r['סוג'] === 'הכנסה').reduce((s, r) => s + parseFloat(r['סכום'] || 0), 0);
+
   const rowsHtml = rows.map(r => {
     const dup = isDuplicate(r);
     return '<tr class="' + (r['סוג'] === 'הכנסה' ? 'income-row' : 'expense-row') + '"'
@@ -1649,6 +1683,10 @@ function showPreview(rows) {
     + '<div class="upload-preview-title">'
     + '<span>נמצאו ' + rows.length + ' עסקאות</span>'
     + '<span style="color:var(--text3);font-size:11px">' + dupLabel + '</span>'
+    + '</div>'
+    + '<div style="display:flex;gap:16px;padding:8px 0;border-bottom:1px solid var(--border);margin-bottom:8px;font-size:13px">'
+    + '<span>סה"כ הוצאות: <strong style="color:var(--expense)">' + formatMoney(totalExpense) + '</strong></span>'
+    + (totalIncome > 0 ? '<span>סה"כ הכנסות: <strong style="color:var(--income)">' + formatMoney(totalIncome) + '</strong></span>' : '')
     + '</div>'
     + '<div class="preview-table-wrap">'
     + '<table class="preview-table">'
