@@ -854,7 +854,7 @@
 <div class="toast-container" id="toast-container"></div>
 
 <script>
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw9qd5PY4zRjpo8OFCagziH_aUnM6luDyHByaKrqcWdJcpqPij-wDMcHeQ55kJTU7WqOg/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby-d0WTJ0rAfSL-UUGSoWh7Fr-ZiS0uwOQCijeVST--UO0J-DyVElFQGrPkLTrgKifE6w/exec';
 
 let allTransactions = [];
 let filteredTransactions = [];
@@ -1732,4 +1732,10 @@ function showToast(msg, type = 'success') {
   setTimeout(() => toast.remove(), 3500);
 }
 
-function formatMoney
+function formatMoney(n) {
+  return '₪' + parseFloat(n || 0).toLocaleString('he-IL', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+</script>
+
+</body>
+</html>
