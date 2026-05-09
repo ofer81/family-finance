@@ -1639,7 +1639,7 @@ async function readExcelAsCSV(file) {
 
 async function parseInChunks(rawText, filename, statusEl) {
   const lines = rawText.split('\n');
-  const CHUNK_SIZE = 80; // שורות לכל chunk
+  const CHUNK_SIZE = 300; // שורות לכל chunk
   
   // זיהוי שורות כותרת (כרטיס/בנק) לשמירה עם כל chunk
   const headerLines = [];
