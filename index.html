@@ -785,8 +785,12 @@
         </div>
       </div>
       <div class="form-group">
-        <label class="form-label">תאריך</label>
-        <input type="date" class="form-input" id="new-date">
+        <label class="form-label">תאריך חיוב</label>
+        <input type="date" class="form-input" id="new-date-charge">
+      </div>
+      <div class="form-group">
+        <label class="form-label">תאריך עסקה</label>
+        <input type="date" class="form-input" id="new-date-transaction">
       </div>
       <div class="form-group">
         <label class="form-label">סכום (₪)</label>
@@ -861,13 +865,14 @@ let filteredTransactions = [];
 let categories = [];
 let selectedType = 'הוצאה';
 let parsedRows = [];
-let sortField = 'תאריך';
+let sortField = 'תאריך חיוב';
 let sortDir = -1;
 
 // ====== INIT ======
 window.addEventListener('DOMContentLoaded', () => {
   const today = new Date().toISOString().split('T')[0];
-  document.getElementById('new-date').value = today;
+  document.getElementById('new-date-charge').value = today;
+  document.getElementById('new-date-transaction').value = today;
   loadData();
   renderRules();
 });
@@ -937,7 +942,7 @@ function updateSummary() {
 function populateMonthFilter() {
   const months = new Set();
   allTransactions.forEach(t => {
-    const d = t['תאריך'];
+    const d = t['תאריך חיוב'];
     if (d) {
       const date = new Date(d);
       if (!isNaN(date)) {
@@ -989,7 +994,7 @@ function applyFilters() {
 
     let matchMonth = true;
     if (month) {
-      const d = new Date(t['תאריך']);
+      const d = new Date(t['תאריך חיוב']);
       if (!isNaN(d)) {
         const tMonth = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
         matchMonth = tMonth === month;
@@ -1025,7 +1030,7 @@ function renderTable() {
   const sorted = [...filteredTransactions].sort((a, b) => {
     let aVal = a[sortField] || '';
     let bVal = b[sortField] || '';
-    if (sortField === 'תאריך') return sortDir * (new Date(bVal) - new Date(aVal));
+    if (sortField === 'תאריך חיוב' || sortField === 'תאריך עסקה') return sortDir * (new Date(bVal) - new Date(aVal));
     if (sortField === 'סכום') return sortDir * (parseFloat(aVal) - parseFloat(bVal));
     return sortDir * String(aVal).localeCompare(String(bVal), 'he');
   });
@@ -1036,7 +1041,8 @@ function renderTable() {
     <table>
       <thead>
         <tr>
-          <th onclick="sortBy('תאריך')" style="cursor:pointer">תאריך ${sortField==='תאריך' ? (sortDir===1?'↑':'↓') : '↕'}</th>
+          <th onclick="sortBy('תאריך חיוב')" style="cursor:pointer">תאריך חיוב ${sortField==='תאריך חיוב' ? (sortDir===1?'↑':'↓') : '↕'}</th>
+          <th onclick="sortBy('תאריך עסקה')" style="cursor:pointer">תאריך עסקה ${sortField==='תאריך עסקה' ? (sortDir===1?'↑':'↓') : '↕'}</th>
           <th onclick="sortBy('תיאור')" style="cursor:pointer">תיאור ${sortField==='תיאור' ? (sortDir===1?'↑':'↓') : '↕'}</th>
           <th onclick="sortBy('קטגוריה')" style="cursor:pointer">קטגוריה ${sortField==='קטגוריה' ? (sortDir===1?'↑':'↓') : '↕'}</th>
           <th onclick="sortBy('סוג')" style="cursor:pointer">סוג ${sortField==='סוג' ? (sortDir===1?'↑':'↓') : '↕'}</th>
@@ -1056,7 +1062,8 @@ function renderTable() {
           const safeNotes = (t['הערות'] || '').replace(/'/g, "\\'");
           return `
             <tr data-row="${t._row}">
-              <td data-label="תאריך">${dateStr}</td>
+              <td data-label="תאריך חיוב">${t['תאריך חיוב'] ? new Date(t['תאריך חיוב']).toLocaleDateString('he-IL') : ''}</td>
+              <td data-label="תאריך עסקה">${t['תאריך עסקה'] ? new Date(t['תאריך עסקה']).toLocaleDateString('he-IL') : ''}</td>
               <td data-label="תיאור" class="editable" ondblclick="editCell(this, '${t._row}', 'תיאור', '${safeDesc}')">${t['תיאור'] || ''}</td>
               <td data-label="קטגוריה">
                 <select class="inline-select" onchange="updateField(${t._row}, 'קטגוריה', this.value)">
@@ -1121,7 +1128,7 @@ function renderMonthChart() {
   const byMonth = {};
 
   filteredTransactions.forEach(t => {
-    const d = new Date(t['תאריך']);
+    const d = new Date(t['תאריך חיוב']);
     if (isNaN(d)) return;
     const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
     if (!byMonth[key]) byMonth[key] = { income: 0, expense: 0 };
@@ -1167,14 +1174,15 @@ function selectType(type) {
 }
 
 async function saveTransaction() {
-  const date = document.getElementById('new-date').value;
+  const dateCharge = document.getElementById('new-date-charge').value;
+  const dateTransaction = document.getElementById('new-date-transaction').value;
   const amount = document.getElementById('new-amount').value;
   const desc = document.getElementById('new-desc').value;
   const cat = document.getElementById('new-cat').value;
   const source = document.getElementById('new-source').value;
   const notes = document.getElementById('new-notes').value;
 
-  if (!date || !amount || !desc) {
+  if (!dateCharge || !amount || !desc) {
     showToast('נא למלא תאריך, סכום ותיאור', 'error');
     return;
   }
@@ -1184,7 +1192,8 @@ async function saveTransaction() {
       method: 'POST',
       body: JSON.stringify({
         action: 'addTransaction',
-        תאריך: date,
+        'תאריך חיוב': dateCharge,
+        'תאריך עסקה': dateTransaction || dateCharge,
         סכום: parseFloat(amount),
         תיאור: desc,
         קטגוריה: cat,
@@ -1272,7 +1281,7 @@ async function updateField(row, field, value) {
 
 function sortBy(field) {
   if (sortField === field) { sortDir *= -1; }
-  else { sortField = field; sortDir = field === 'תאריך' ? -1 : 1; }
+  else { sortField = field; sortDir = (field === 'תאריך חיוב' || field === 'תאריך עסקה') ? -1 : 1; }
   renderTable();
 }
 
@@ -1669,7 +1678,8 @@ function showPreview(rows) {
     const dup = isDuplicate(r);
     return '<tr class="' + (r['סוג'] === 'הכנסה' ? 'income-row' : 'expense-row') + '"'
       + (dup ? ' style="opacity:0.4"' : '') + '>'
-      + '<td>' + (r['תאריך'] || '') + '</td>'
+      + '<td>' + (r['תאריך חיוב'] || r['תאריך'] || '') + '</td>'
+      + '<td>' + (r['תאריך עסקה'] || '') + '</td>'
       + '<td>' + (r['תיאור'] || '') + '</td>'
       + '<td>' + (r['קטגוריה'] || '') + '</td>'
       + '<td>' + (r['סוג'] || '') + '</td>'
@@ -1708,11 +1718,11 @@ function normalizeDate(d) {
 }
 
 function isDuplicate(row) {
-  const rowDate = normalizeDate(row['תאריך']);
+  const rowDate = normalizeDate(row['תאריך חיוב'] || row['תאריך']);
   const rowAmount = parseFloat(row['סכום'] || 0);
   const rowDesc = (row['תיאור'] || '').trim().toLowerCase();
   return allTransactions.some(t => {
-    const tDate = normalizeDate(t['תאריך']);
+    const tDate = normalizeDate(t['תאריך חיוב'] || t['תאריך']);
     const tAmount = parseFloat(t['סכום'] || 0);
     const tDesc = (t['תיאור'] || '').trim().toLowerCase();
     return tDate === rowDate && tAmount === rowAmount && tDesc === rowDesc;
