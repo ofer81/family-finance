@@ -1411,6 +1411,14 @@ function editRule(idx) {
   document.getElementById('rule-text').focus();
 }
 
+function removePreviewRow(idx) {
+  parsedRows.splice(idx, 1);
+  showPreview(parsedRows);
+  if (parsedRows.length === 0) {
+    document.getElementById('import-btn').style.display = 'none';
+  }
+}
+
 function applyRulesToRows(rows) {
   return rows.map(row => {
     const desc = (row['תיאור'] || '').toLowerCase();
@@ -1722,7 +1730,7 @@ function showPreview(rows) {
   const totalExpense = rows.filter(r => r['סוג'] !== 'הכנסה').reduce((s, r) => s + parseFloat(r['סכום'] || 0), 0);
   const totalIncome = rows.filter(r => r['סוג'] === 'הכנסה').reduce((s, r) => s + parseFloat(r['סכום'] || 0), 0);
 
-  const rowsHtml = rows.map(r => {
+  const rowsHtml = rows.map((r, i) => {
     const dup = isDuplicate(r);
     return '<tr class="' + (r['סוג'] === 'הכנסה' ? 'income-row' : 'expense-row') + '"'
       + (dup ? ' style="opacity:0.4"' : '') + '>'
@@ -1734,6 +1742,7 @@ function showPreview(rows) {
       + '<td>' + (r['מקור'] || '') + '</td>'
       + '<td class="amount-col">' + formatMoney(r['סכום'] || 0) + '</td>'
       + '<td style="font-size:11px;color:var(--warning)">' + (dup ? 'כפיל' : '') + '</td>'
+      + '<td><button onclick="removePreviewRow(' + i + ')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:2px 6px" title="הסר">🗑️</button></td>'
       + '</tr>';
   }).join('');
 
