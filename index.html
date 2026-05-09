@@ -1638,10 +1638,43 @@ async function readExcelAsCSV(file) {
 }
 
 async function parseInChunks(rawText, filename, statusEl) {
-  if (statusEl) statusEl.textContent = 'מנתח עסקאות עם בינה מלאכותית...';
-  // שלח את כל הקובץ בפעם אחת — חשוב לקבצים עם מספר כרטיסים
-  const rows = await parseTransactionsWithAI(rawText, filename);
-  return rows;
+  const lines = rawText.split('\n');
+  const CHUNK_SIZE = 80; // שורות לכל chunk
+  
+  // זיהוי שורות כותרת (כרטיס/בנק) לשמירה עם כל chunk
+  const headerLines = [];
+  lines.forEach((line, i) => {
+    if (line.includes('ארבע ספרות') || 
+        line.includes('חשבון כרטיס') ||
+        line.includes('חשבון בנק') ||
+        line.includes('מספר חשבון')) {
+      headerLines.push(line);
+    }
+  });
+  const cardHeader = headerLines.join('\n');
+
+  // חלק לchunks
+  const dataLines = lines.filter(l => l.trim());
+  const chunks = [];
+  for (let i = 0; i < dataLines.length; i += CHUNK_SIZE) {
+    chunks.push(dataLines.slice(i, i + CHUNK_SIZE));
+  }
+
+  if (chunks.length === 0) return [];
+
+  let allRows = [];
+  for (let i = 0; i < chunks.length; i++) {
+    if (statusEl) statusEl.textContent = 'מנתח עסקאות... (חלק ' + (i+1) + ' מתוך ' + chunks.length + ')';
+    // הוסף את כותרות הכרטיס לכל chunk
+    const chunkText = (cardHeader ? cardHeader + '\n' : '') + chunks[i].join('\n');
+    try {
+      const rows = await parseTransactionsWithAI(chunkText, filename);
+      allRows = allRows.concat(rows);
+    } catch(e) {
+      console.error('Chunk ' + i + ' failed:', e.message);
+    }
+  }
+  return allRows;
 }
 
 async function parseTransactionsWithAI(rawText, filename) {
