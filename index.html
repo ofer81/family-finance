@@ -1895,7 +1895,10 @@ function showPreview(rows) {
     '<div class="upload-preview">'
     + '<div class="upload-preview-title">'
     + '<span>נמצאו ' + rows.length + ' עסקאות</span>'
+    + '<div style="display:flex;align-items:center;gap:10px">'
     + '<span style="color:var(--text3);font-size:11px">' + dupLabel + ' &nbsp;|&nbsp; לחץ פעמיים על תא לעריכה</span>'
+    + '<button onclick="downloadPreviewExcel()" style="background:linear-gradient(135deg,#1d6f42,#2a9d5c);border:none;color:white;padding:5px 12px;border-radius:6px;cursor:pointer;font-family:Heebo,sans-serif;font-size:12px;font-weight:600;display:flex;align-items:center;gap:5px;white-space:nowrap">📥 הורד Excel</button>'
+    + '</div>'
     + '</div>'
     + '<div style="display:flex;gap:16px;padding:8px 0;border-bottom:1px solid var(--border);margin-bottom:8px;font-size:13px">'
     + '<span>סה"כ לתשלום: <strong style="color:var(--expense)">' + formatMoney(netExpense) + '</strong></span>'
@@ -2000,7 +2003,44 @@ function showToast(msg, type = 'success') {
   setTimeout(() => toast.remove(), 3500);
 }
 
-function formatMoney(n) {
+function downloadPreviewExcel() {
+  if (!parsedRows || parsedRows.length === 0) {
+    showToast('אין נתונים להורדה', 'error');
+    return;
+  }
+
+  const headers = ['תאריך חיוב', 'תאריך עסקה', 'תיאור', 'קטגוריה', 'סוג', 'מקור', 'סכום', 'סכום העסקה', 'הערות תשלומים', 'הערות'];
+
+  const wsData = [
+    headers,
+    ...parsedRows.map(r => headers.map(h => r[h] || ''))
+  ];
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  // רוחב עמודות
+  ws['!cols'] = [
+    { wch: 14 }, // תאריך חיוב
+    { wch: 14 }, // תאריך עסקה
+    { wch: 32 }, // תיאור
+    { wch: 18 }, // קטגוריה
+    { wch: 10 }, // סוג
+    { wch: 16 }, // מקור
+    { wch: 12 }, // סכום
+    { wch: 14 }, // סכום עסקה
+    { wch: 18 }, // הערות תשלומים
+    { wch: 20 }, // הערות
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, 'עסקאות');
+
+  const today = new Date().toISOString().split('T')[0];
+  XLSX.writeFile(wb, 'עסקאות_' + today + '.xlsx');
+  showToast('הקובץ הורד ✓', 'success');
+}
+
+
   return '₪' + parseFloat(n || 0).toLocaleString('he-IL', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
 </script>
