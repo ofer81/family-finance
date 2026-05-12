@@ -1920,8 +1920,13 @@ function showPreview(rows) {
 
 function normalizeDate(d) {
   if (!d) return '';
-  const date = new Date(d);
+  const s = String(d).trim();
+  // חייב להכיל מבנה של תאריך: /-. בין מספרים
+  if (!/\d[\-\/\.]\d/.test(s) && !/^\d{8}$/.test(s)) return s;
+  const date = new Date(s);
+  if (isNaN(date.getTime())) return s;
   const year = date.getFullYear();
+  if (year < 1990 || year > 2100) return s;
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return year + '-' + month + '-' + day;
