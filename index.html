@@ -1876,7 +1876,7 @@ function showPreview(rows) {
   const netExpense = totalExpense - totalIncome;
 
   const rowsHtml = rows.map((r, i) => {
-    const dup = isDuplicate(r);
+    const dup = !r._forceImport && isDuplicate(r);
     return '<tr class="' + (r['סוג'] === 'הכנסה' ? 'income-row' : 'expense-row') + '"'
       + (dup ? ' style="opacity:0.4"' : '') + '>'
       + '<td ondblclick="editPreviewCell(' + i + ',\'תאריך חיוב\',this)" style="cursor:pointer" title="לחץ פעמיים לעריכה">' + (r['תאריך חיוב'] || r['תאריך'] || '') + '</td>'
@@ -1887,7 +1887,10 @@ function showPreview(rows) {
       + '<td ondblclick="editPreviewCell(' + i + ',\'מקור\',this)" style="cursor:pointer" title="לחץ פעמיים לעריכה">' + (r['מקור'] || '') + '</td>'
       + '<td ondblclick="editPreviewCell(' + i + ',\'סכום\',this)" style="cursor:pointer" title="לחץ פעמיים לעריכה" class="amount-col">' + formatMoney(r['סכום'] || 0) + '</td>'
       + '<td style="font-size:11px;color:var(--warning)">' + (dup ? 'כפיל' : '') + '</td>'
-      + '<td><button onclick="removePreviewRow(' + i + ')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:2px 6px" title="הסר">🗑️</button></td>'
+      + '<td style="white-space:nowrap">'
+      + (dup ? '<button onclick="forceImportRow(' + i + ')" style="background:rgba(255,184,48,0.15);border:1px solid var(--warning);color:var(--warning);padding:2px 8px;border-radius:5px;cursor:pointer;font-family:Heebo,sans-serif;font-size:11px;font-weight:600;margin-left:4px" title="ייבא בכל זאת">✓ ייבא</button>' : '')
+      + '<button onclick="removePreviewRow(' + i + ')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:2px 6px" title="הסר">🗑️</button>'
+      + '</td>'
       + '</tr>';
   }).join('');
 
@@ -1925,15 +1928,24 @@ function normalizeDate(d) {
 }
 
 function isDuplicate(row) {
-  const rowDate = normalizeDate(row['תאריך חיוב'] || row['תאריך']);
-  const rowAmount = parseFloat(row['סכום'] || 0);
-  const rowDesc = (row['תיאור'] || '').trim().toLowerCase();
+  const rowChargeDate = normalizeDate(row['תאריך חיוב'] || row['תאריך']);
+  const rowTxDate     = normalizeDate(row['תאריך עסקה'] || row['תאריך חיוב'] || row['תאריך']);
+  const rowAmount     = parseFloat(row['סכום'] || 0);
+  const rowDesc       = (row['תיאור'] || '').trim().toLowerCase();
   return allTransactions.some(t => {
-    const tDate = normalizeDate(t['תאריך חיוב'] || t['תאריך']);
-    const tAmount = parseFloat(t['סכום'] || 0);
-    const tDesc = (t['תיאור'] || '').trim().toLowerCase();
-    return tDate === rowDate && tAmount === rowAmount && tDesc === rowDesc;
+    const tChargeDate = normalizeDate(t['תאריך חיוב'] || t['תאריך']);
+    const tTxDate     = normalizeDate(t['תאריך עסקה'] || t['תאריך חיוב'] || t['תאריך']);
+    const tAmount     = parseFloat(t['סכום'] || 0);
+    const tDesc       = (t['תיאור'] || '').trim().toLowerCase();
+    return tChargeDate === rowChargeDate && tTxDate === rowTxDate
+        && tAmount === rowAmount && tDesc === rowDesc;
   });
+}
+
+function forceImportRow(idx) {
+  parsedRows[idx]._forceImport = true;
+  showPreview(parsedRows);
+  showToast('שורה תיובא גם אם כפיל ✓', 'success');
 }
 
 async function importTransactions() {
@@ -1943,7 +1955,7 @@ async function importTransactions() {
   btn.disabled = true;
 
   const processedRows = applyRulesToRows([...parsedRows]);
-  const newRows = processedRows.filter(row => !isDuplicate(row));
+  const newRows = processedRows.filter(row => row._forceImport || !isDuplicate(row));
   const skipped = processedRows.length - newRows.length;
 
   btn.textContent = '✅ ייבא עסקאות';
