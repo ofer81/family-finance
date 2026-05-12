@@ -1828,7 +1828,11 @@ async function parseInChunks(rawText, filename, statusEl) {
   let allRows = [];
   for (let i = 0; i < chunks.length; i++) {
     if (statusEl) statusEl.textContent = 'מנתח עסקאות... (חלק ' + (i+1) + ' מתוך ' + chunks.length + ')';
-    const chunkText = (cardHeader ? cardHeader + '\n' : '') + chunks[i].join('\n');
+    // הוסף כותרת רק אם היא לא כבר קיימת ב-chunk
+    const chunkStr = chunks[i].join('\n');
+    const chunkText = (cardHeader && !chunkStr.includes('4707') && !chunkStr.includes('543-112678'))
+      ? cardHeader + '\n' + chunkStr
+      : chunkStr;
     try {
       const rows = await parseTransactionsWithAI(chunkText, filename);
       allRows = allRows.concat(rows);
