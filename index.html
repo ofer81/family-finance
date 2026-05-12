@@ -1687,46 +1687,74 @@ async function parseExcelDirectly(file) {
           }
         }
 
-        // זיהוי מקור לפי שם הגיליון / כותרת
+        // זיהוי מקור לפי כותרת
         let source = '';
-        const sheetNameLower = sheetName.toLowerCase();
         const headerText = String(allRows[0] ? allRows[0][0] : '');
-        if (headerText.includes('4707') || sheetNameLower.includes('4707')) source = 'אשראי פליי קארד';
-        else if (headerText.includes('2274') || sheetNameLower.includes('2274')) source = 'אשראי מורן';
-        else if (headerText.includes('0159') || sheetNameLower.includes('0159')) source = 'אשראי עופר';
-        else if (headerText.includes('מזרחי') || sheetNameLower.includes('מזרחי')) source = 'בנק מזרחי';
+        if (headerText.includes('4707')) source = 'אשראי פליי קארד';
+        else if (headerText.includes('1920')) source = 'אשראשי פלאיי קארד ישן';
+        else if (headerText.includes('2274')) source = 'אשראי מורן';
+        else if (headerText.includes('0159')) source = 'אשראי עופר';
+        else if (headerText.includes('מזרחי')) source = 'בנק מזרחי';
 
-        // מצא שורת headers (col0=תאריך, col1=תיאור/שם בית עסק, col2=סכום עסקה, col3=סכום חיוב)
+        // זיהוי מבנה: האם יש עמודת "סכום חיוב" נפרדת (col3 הוא מספר) או "מועד חיוב" (col3 הוא תאריך)
+        // מצא שורת headers
         let dataStart = -1;
+        let headerRow = null;
         for (let i = 0; i < allRows.length; i++) {
           const r = allRows[i];
           if (r[0] instanceof Date || (typeof r[0] === 'string' && /\d{1,2}\/\d{1,2}\/\d{4}/.test(r[0]))) {
             dataStart = i;
             break;
           }
+          // שמור את שורת הheaders
+          if (r[0] && String(r[0]).includes('תאריך')) headerRow = r;
         }
         if (dataStart === -1) { resolve([]); return; }
+
+        // זיהוי מבנה לפי headers: האם col3 = "סכום חיוב" או "מועד חיוב"
+        const col3Header = headerRow ? String(headerRow[3] || '') : '';
+        const hasSeparateChargeAmount = col3Header.includes('סכום') && col3Header.includes('חיוב');
+        // מבנה 4707: col2=סכום עסקה, col3=סכום חיוב, col6=הערות
+        // מבנה 1920: col2=סכום בש"ח, col3=מועד חיוב (תאריך), col7=הערות
 
         const results = [];
         for (let i = dataStart; i < allRows.length; i++) {
           const r = allRows[i];
           const txDate = toDateStr(r[0]);
-          if (!txDate) continue;                    // שורה ריקה / סיכום
+          if (!txDate) continue;
           const desc = String(r[1] || '').trim();
           if (!desc) continue;
-          const amountTx   = parseFloat(r[2]) || 0; // סכום עסקה (מטבע מקורי / כולל)
-          const amountCharge = parseFloat(r[3]) || 0; // סכום חיוב (מה שמחויב בפועל)
-          const notes = String(r[6] || '').trim();
+
+          let amount, amountTx, chargeDateRow, notes;
+
+          if (hasSeparateChargeAmount) {
+            // מבנה 4707
+            amountTx    = parseFloat(r[2]) || 0;
+            amount      = parseFloat(r[3]) || amountTx;
+            chargeDateRow = chargeDate;
+            notes       = String(r[6] || '').trim();
+          } else {
+            // מבנה 1920: סכום אחד, מועד חיוב בcol3
+            amount      = parseFloat(r[2]) || 0;
+            amountTx    = amount;
+            chargeDateRow = toDateStr(r[3]) || chargeDate || txDate;
+            notes       = String(r[7] || '').trim();
+          }
+
+          // זיכויים: סכום שלילי → סוג "הכנסה"
+          const type = amount < 0 ? 'הכנסה' : 'הוצאה';
+          const absAmount = Math.abs(amount);
+          const absAmountTx = Math.abs(amountTx);
 
           results.push({
-            'תאריך חיוב':      chargeDate || txDate,
+            'תאריך חיוב':      chargeDateRow,
             'תאריך עסקה':     txDate,
             'תיאור':           desc,
             'קטגוריה':         '',
-            'סוג':             'הוצאה',
+            'סוג':             type,
             'מקור':            source,
-            'סכום':            amountCharge || amountTx,
-            'סכום העסקה':     amountTx,
+            'סכום':            absAmount,
+            'סכום העסקה':     absAmountTx,
             'הערות תשלומים':  notes,
             'הערות':           ''
           });
