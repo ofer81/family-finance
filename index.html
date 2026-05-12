@@ -652,6 +652,12 @@
           <option value="">כל הקטגוריות</option>
         </select>
       </div>
+      <div class="filter-group">
+        <label>🏦 מקור</label>
+        <select class="filter-select" id="source-filter" onchange="applyFilters()">
+          <option value="">כל המקורות</option>
+        </select>
+      </div>
     </div>
 
     <div class="actions-bar">
@@ -910,6 +916,7 @@ async function loadData(forceRefresh = false) {
     renderTable();
     renderCharts();
     populateMonthFilter();
+    populateSourceFilter();
 
   } catch (err) {
     showToast('שגיאה בטעינת נתונים', 'error');
@@ -972,6 +979,20 @@ function populateCategoryFilter() {
   sel.value = current;
 }
 
+function populateSourceFilter() {
+  const sources = new Set();
+  allTransactions.forEach(t => {
+    if (t['מקור']) sources.add(t['מקור']);
+  });
+  const sel = document.getElementById('source-filter');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">כל המקורות</option>';
+  [...sources].sort().forEach(s => {
+    sel.innerHTML += `<option value="${s}">${s}</option>`;
+  });
+  sel.value = current;
+}
+
 function populateCategorySelect() {
   const sel = document.getElementById('new-cat');
   sel.innerHTML = '<option value="">-- בחר קטגוריה --</option>';
@@ -986,6 +1007,7 @@ function applyFilters() {
   const month = document.getElementById('month-filter').value;
   const type = document.getElementById('type-filter').value;
   const cat = document.getElementById('cat-filter').value;
+  const source = document.getElementById('source-filter').value;
 
   filteredTransactions = allTransactions.filter(t => {
     const desc = (t['תיאור'] || '').toLowerCase();
@@ -1003,8 +1025,9 @@ function applyFilters() {
 
     const matchType = !type || t['סוג'] === type;
     const matchCat = !cat || t['קטגוריה'] === cat;
+    const matchSource = !source || t['מקור'] === source;
 
-    return matchSearch && matchMonth && matchType && matchCat;
+    return matchSearch && matchMonth && matchType && matchCat && matchSource;
   });
 
   updateSummary();
