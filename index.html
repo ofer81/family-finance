@@ -1709,17 +1709,35 @@ async function readExcelAsCSV(file) {
         const allRows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true });
         
         // המר serial dates של Excel לתאריכים קריאים
-        function excelSerialToDate(serial) {
-          if (typeof serial !== 'number' || serial < 1000 || serial > 100000) return serial;
-          // Excel serial: days since 1900-01-00 (with leap year bug)
-          const days = Math.round(serial);
-          const ms = (days - 25569) * 86400 * 1000;
-          const date = new Date(ms);
-          // Use local time to avoid UTC offset shifting the date
-          const y = date.getFullYear();
-          const m = String(date.getMonth() + 1).padStart(2, '0');
-          const d = String(date.getDate()).padStart(2, '0');
-          return y + '-' + m + '-' + d;
+        function excelSerialToDate(val) {
+          // Date object מ-XLSX.js
+          if (val instanceof Date) {
+            const y = val.getFullYear();
+            const m = String(val.getMonth() + 1).padStart(2, '0');
+            const d = String(val.getDate()).padStart(2, '0');
+            return y + '-' + m + '-' + d;
+          }
+          // מספר serial של Excel
+          if (typeof val === 'number' && val > 1000 && val < 100000) {
+            const days = Math.round(val);
+            const ms = (days - 25569) * 86400 * 1000;
+            const date = new Date(ms);
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return y + '-' + m + '-' + d;
+          }
+          // מחרוזת תאריך ארוכה (Thu Apr 30...)
+          if (typeof val === 'string' && val.includes(' ') && val.length > 15) {
+            const d = new Date(val);
+            if (!isNaN(d)) {
+              const y = d.getFullYear();
+              const mo = String(d.getMonth() + 1).padStart(2, '0');
+              const day = String(d.getDate()).padStart(2, '0');
+              return y + '-' + mo + '-' + day;
+            }
+          }
+          return val;
         }
         
         const processedRows = allRows.map(row => row.map(cell => excelSerialToDate(cell)));
