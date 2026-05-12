@@ -1718,7 +1718,7 @@ async function readExcelAsCSV(file) {
             return y + '-' + m + '-' + d;
           }
           // מספר serial של Excel
-          if (typeof val === 'number' && val > 1000 && val < 100000) {
+          if (typeof val === 'number' && val > 40000 && val < 55000) { // טווח תאריכי Excel 2010-2050
             const days = Math.round(val);
             const ms = (days - 25569) * 86400 * 1000;
             const date = new Date(ms);
@@ -1740,7 +1740,9 @@ async function readExcelAsCSV(file) {
           return val;
         }
         
-        const processedRows = allRows.map(row => row.map(cell => excelSerialToDate(cell)));
+        const processedRows = allRows
+          .map(row => row.map(cell => excelSerialToDate(cell)))
+          .filter(row => row.some(cell => cell !== null && cell !== undefined && cell !== ''));
         resolve(processedRows.map(row => row.join('\t')).join('\n'));
       } catch (err) { reject(err); }
     };
@@ -1807,7 +1809,7 @@ function extractCreditCardSections(rawText) {
 
 async function parseInChunks(rawText, filename, statusEl) {
   const cleanText = extractCreditCardSections(rawText);
-  const lines = cleanText.split('\n');
+  const lines = cleanText.split('\n').filter(l => l.trim()); // סנן שורות ריקות
   const CHUNK_SIZE = 150;
 
   const headerLines = lines.filter(l =>
