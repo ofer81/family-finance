@@ -1419,6 +1419,58 @@ function removePreviewRow(idx) {
   }
 }
 
+function editPreviewCell(idx, field, el) {
+  const currentVal = parsedRows[idx][field] || '';
+  let input;
+
+  if (field === 'סוג') {
+    input = document.createElement('select');
+    input.className = 'inline-select';
+    ['הוצאה', 'הכנסה', 'חסכון'].forEach(opt => {
+      const o = document.createElement('option');
+      o.value = opt; o.textContent = opt;
+      if (opt === currentVal) o.selected = true;
+      input.appendChild(o);
+    });
+  } else if (field === 'קטגוריה') {
+    input = document.createElement('select');
+    input.className = 'inline-select';
+    const emptyOpt = document.createElement('option');
+    emptyOpt.value = ''; emptyOpt.textContent = '-- בחר --';
+    input.appendChild(emptyOpt);
+    categories.forEach(c => {
+      const o = document.createElement('option');
+      o.value = c['קטגוריה']; o.textContent = c['קטגוריה'];
+      if (c['קטגוריה'] === currentVal) o.selected = true;
+      input.appendChild(o);
+    });
+  } else {
+    input = document.createElement('input');
+    input.type = field === 'סכום' ? 'number' : 'text';
+    input.className = 'inline-input';
+    input.value = currentVal;
+    input.style.width = '100%';
+    input.style.minWidth = '80px';
+  }
+
+  input.style.fontSize = '12px';
+  el.innerHTML = '';
+  el.appendChild(input);
+  input.focus();
+
+  const save = () => {
+    parsedRows[idx][field] = input.value;
+    showPreview(parsedRows);
+  };
+
+  input.addEventListener('blur', save);
+  input.addEventListener('change', save);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') input.blur();
+    if (e.key === 'Escape') { parsedRows[idx][field] = currentVal; showPreview(parsedRows); }
+  });
+}
+
 function applyRulesToRows(rows) {
   return rows.map(row => {
     const desc = (row['תיאור'] || '').toLowerCase();
@@ -1650,9 +1702,24 @@ async function readExcelAsCSV(file) {
         const workbook = XLSX.read(data, { type: 'array', cellDates: true });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
-        const allRows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, dateNF: 'YYYY-MM-DD' });
-        // שלח את כל השורות כולל שורות כותרת הכרטיס
-        resolve(allRows.map(row => row.join('\t')).join('\n'));
+        const allRows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true });
+        
+        // המר serial dates של Excel לתאריכים קריאים
+        function excelSerialToDate(serial) {
+          if (typeof serial !== 'number' || serial < 1000 || serial > 100000) return serial;
+          const utc_days = Math.floor(serial - 25569);
+          const utc_value = utc_days * 86400 * 1000;
+          const date = new Date(utc_value);
+          const y = date.getUTCFullYear();
+          const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+          const d = String(date.getUTCDate()).padStart(2, '0');
+          return y + '-' + m + '-' + d;
+        }
+        
+        const processedRows = allRows.map(row => 
+          row.map(cell => excelSerialToDate(cell))
+        );
+        resolve(processedRows.map(row => row.join('\t')).join('\n'));
       } catch (err) { reject(err); }
     };
     reader.onerror = reject;
@@ -1782,13 +1849,13 @@ function showPreview(rows) {
     const dup = isDuplicate(r);
     return '<tr class="' + (r['סוג'] === 'הכנסה' ? 'income-row' : 'expense-row') + '"'
       + (dup ? ' style="opacity:0.4"' : '') + '>'
-      + '<td>' + (r['תאריך חיוב'] || r['תאריך'] || '') + '</td>'
-      + '<td>' + (r['תאריך עסקה'] || '') + '</td>'
-      + '<td>' + (r['תיאור'] || '') + '</td>'
-      + '<td>' + (r['קטגוריה'] || '') + '</td>'
-      + '<td>' + (r['סוג'] || '') + '</td>'
-      + '<td>' + (r['מקור'] || '') + '</td>'
-      + '<td class="amount-col">' + formatMoney(r['סכום'] || 0) + '</td>'
+      + '<td ondblclick="editPreviewCell(' + i + ',\'תאריך חיוב\',this)" style="cursor:pointer" title="לחץ פעמיים לעריכה">' + (r['תאריך חיוב'] || r['תאריך'] || '') + '</td>'
+      + '<td ondblclick="editPreviewCell(' + i + ',\'תאריך עסקה\',this)" style="cursor:pointer" title="לחץ פעמיים לעריכה">' + (r['תאריך עסקה'] || '') + '</td>'
+      + '<td ondblclick="editPreviewCell(' + i + ',\'תיאור\',this)" style="cursor:pointer" title="לחץ פעמיים לעריכה">' + (r['תיאור'] || '') + '</td>'
+      + '<td ondblclick="editPreviewCell(' + i + ',\'קטגוריה\',this)" style="cursor:pointer" title="לחץ פעמיים לעריכה">' + (r['קטגוריה'] || '') + '</td>'
+      + '<td ondblclick="editPreviewCell(' + i + ',\'סוג\',this)" style="cursor:pointer" title="לחץ פעמיים לעריכה">' + (r['סוג'] || '') + '</td>'
+      + '<td ondblclick="editPreviewCell(' + i + ',\'מקור\',this)" style="cursor:pointer" title="לחץ פעמיים לעריכה">' + (r['מקור'] || '') + '</td>'
+      + '<td ondblclick="editPreviewCell(' + i + ',\'סכום\',this)" style="cursor:pointer" title="לחץ פעמיים לעריכה" class="amount-col">' + formatMoney(r['סכום'] || 0) + '</td>'
       + '<td style="font-size:11px;color:var(--warning)">' + (dup ? 'כפיל' : '') + '</td>'
       + '<td><button onclick="removePreviewRow(' + i + ')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:2px 6px" title="הסר">🗑️</button></td>'
       + '</tr>';
@@ -1798,7 +1865,7 @@ function showPreview(rows) {
     '<div class="upload-preview">'
     + '<div class="upload-preview-title">'
     + '<span>נמצאו ' + rows.length + ' עסקאות</span>'
-    + '<span style="color:var(--text3);font-size:11px">' + dupLabel + '</span>'
+    + '<span style="color:var(--text3);font-size:11px">' + dupLabel + ' &nbsp;|&nbsp; לחץ פעמיים על תא לעריכה</span>'
     + '</div>'
     + '<div style="display:flex;gap:16px;padding:8px 0;border-bottom:1px solid var(--border);margin-bottom:8px;font-size:13px">'
     + '<span>סה"כ לתשלום: <strong style="color:var(--expense)">' + formatMoney(netExpense) + '</strong></span>'
