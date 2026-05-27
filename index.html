@@ -561,10 +561,10 @@
   }
 
   /* SCROLLBAR */
-  ::-webkit-scrollbar { width: 10px; height: 10px; }
-  ::-webkit-scrollbar-track { background: var(--bg2); border-radius: 5px; }
-  ::-webkit-scrollbar-thumb { background: #888; border-radius: 5px; border: 2px solid var(--bg2); }
-  ::-webkit-scrollbar-thumb:hover { background: #bbb; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
 
   .tab-content { display: none; }
   .tab-content.active { display: block; }
@@ -594,6 +594,7 @@
   <button class="nav-btn active" onclick="switchTab('transactions')" id="tab-transactions">📋 עסקאות</button>
   <button class="nav-btn" onclick="switchTab('charts')" id="tab-charts">📊 גרפים</button>
   <button class="nav-btn" onclick="switchTab('rules')" id="tab-rules">⚙️ כללים</button>
+  <button class="nav-btn" onclick="switchTab('trends')" id="tab-trends">📈 טרנדים</button>
 </div>
 
 <!-- MAIN -->
@@ -650,12 +651,6 @@
         <label>📂 קטגוריה</label>
         <select class="filter-select" id="cat-filter" onchange="applyFilters()">
           <option value="">כל הקטגוריות</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <label>🏦 מקור</label>
-        <select class="filter-select" id="source-filter" onchange="applyFilters()">
-          <option value="">כל המקורות</option>
         </select>
       </div>
     </div>
@@ -770,6 +765,51 @@
         <div class="legend-item"><div class="legend-dot" style="background:var(--expense)"></div> הוצאות</div>
       </div>
       <div id="month-chart" class="month-chart"><p style="color:var(--text3);font-size:13px">אין נתונים</p></div>
+    </div>
+  </div>
+
+  <!-- TRENDS TAB -->
+  <div class="tab-content" id="tab-content-trends">
+    <div style="padding:16px 20px;display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;border-bottom:1px solid var(--border)">
+      <div class="filter-group">
+        <label>📅 שנה</label>
+        <select class="filter-select" id="trend-year" onchange="renderTrends()">
+          <option value="">כל השנים</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>💰 סוג</label>
+        <select class="filter-select" id="trend-type" onchange="renderTrends()">
+          <option value="הוצאה">הוצאות</option>
+          <option value="הכנסה">הכנסות</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>🏦 מקור</label>
+        <select class="filter-select" id="trend-source" onchange="renderTrends()">
+          <option value="">כל המקורות</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>📂 קטגוריה</label>
+        <select class="filter-select" id="trend-cat" onchange="renderTrends()">
+          <option value="">כל הקטגוריות</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>🔍 תיאור</label>
+        <input type="text" class="filter-select" id="trend-desc" placeholder="חיפוש חופשי..." oninput="renderTrends()" style="width:160px">
+      </div>
+    </div>
+    <div class="chart-card" style="margin:20px">
+      <div id="trend-summary" style="display:flex;gap:24px;margin-bottom:16px;flex-wrap:wrap"></div>
+      <div id="trend-chart" style="width:100%;min-height:260px"></div>
+    </div>
+    <div class="chart-card" style="margin:0 20px 20px">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead id="trend-table-head"></thead>
+        <tbody id="trend-table-body"></tbody>
+      </table>
     </div>
   </div>
 
@@ -916,7 +956,6 @@ async function loadData(forceRefresh = false) {
     renderTable();
     renderCharts();
     populateMonthFilter();
-    populateSourceFilter();
 
   } catch (err) {
     showToast('שגיאה בטעינת נתונים', 'error');
@@ -926,11 +965,8 @@ async function loadData(forceRefresh = false) {
 }
 
 // ====== SUMMARY ======
-const INTERNAL_TRANSFER = 'העברה פנימית';
-function isInternal(t) { return t['קטגוריה'] === INTERNAL_TRANSFER; }
-
 function updateSummary() {
-  const source = filteredTransactions.filter(t => !isInternal(t));
+  const source = filteredTransactions;
   const income = source.filter(t => t['סוג'] === 'הכנסה').reduce((s, t) => s + parseFloat(t['סכום'] || 0), 0);
   const expense = source.filter(t => t['סוג'] === 'הוצאה').reduce((s, t) => s + parseFloat(t['סכום'] || 0), 0);
   const balance = income - expense;
@@ -982,20 +1018,6 @@ function populateCategoryFilter() {
   sel.value = current;
 }
 
-function populateSourceFilter() {
-  const sources = new Set();
-  allTransactions.forEach(t => {
-    if (t['מקור']) sources.add(t['מקור']);
-  });
-  const sel = document.getElementById('source-filter');
-  const current = sel.value;
-  sel.innerHTML = '<option value="">כל המקורות</option>';
-  [...sources].sort().forEach(s => {
-    sel.innerHTML += `<option value="${s}">${s}</option>`;
-  });
-  sel.value = current;
-}
-
 function populateCategorySelect() {
   const sel = document.getElementById('new-cat');
   sel.innerHTML = '<option value="">-- בחר קטגוריה --</option>';
@@ -1010,7 +1032,6 @@ function applyFilters() {
   const month = document.getElementById('month-filter').value;
   const type = document.getElementById('type-filter').value;
   const cat = document.getElementById('cat-filter').value;
-  const source = document.getElementById('source-filter').value;
 
   filteredTransactions = allTransactions.filter(t => {
     const desc = (t['תיאור'] || '').toLowerCase();
@@ -1028,9 +1049,8 @@ function applyFilters() {
 
     const matchType = !type || t['סוג'] === type;
     const matchCat = !cat || t['קטגוריה'] === cat;
-    const matchSource = !source || t['מקור'] === source;
 
-    return matchSearch && matchMonth && matchType && matchCat && matchSource;
+    return matchSearch && matchMonth && matchType && matchCat;
   });
 
   updateSummary();
@@ -1072,7 +1092,7 @@ function renderTable() {
           <th onclick="sortBy('תיאור')" style="cursor:pointer">תיאור ${sortField==='תיאור' ? (sortDir===1?'↑':'↓') : '↕'}</th>
           <th onclick="sortBy('קטגוריה')" style="cursor:pointer">קטגוריה ${sortField==='קטגוריה' ? (sortDir===1?'↑':'↓') : '↕'}</th>
           <th onclick="sortBy('סוג')" style="cursor:pointer">סוג ${sortField==='סוג' ? (sortDir===1?'↑':'↓') : '↕'}</th>
-          <th onclick="sortBy('מקור')" style="cursor:pointer">מקור ${sortField==='מקור' ? (sortDir===1?'↑':'↓') : '↕'}</th>
+          <th>מקור</th>
           <th>הערות</th>
           <th onclick="sortBy('סכום')" style="cursor:pointer">סכום ${sortField==='סכום' ? (sortDir===1?'↑':'↓') : '↕'}</th>
           <th onclick="sortBy('סכום העסקה')" style="cursor:pointer">סכום עסקה ${sortField==='סכום העסקה' ? (sortDir===1?'↑':'↓') : '↕'}</th>
@@ -1132,7 +1152,7 @@ function renderCharts() {
 
 function renderCategoryChart(type, containerId, color) {
   const container = document.getElementById(containerId);
-  const filtered = filteredTransactions.filter(t => t['סוג'] === type && !isInternal(t));
+  const filtered = filteredTransactions.filter(t => t['סוג'] === type);
   const bycat = {};
   filtered.forEach(t => {
     const cat = t['קטגוריה'] || 'אחר';
@@ -1157,7 +1177,7 @@ function renderMonthChart() {
   const container = document.getElementById('month-chart');
   const byMonth = {};
 
-  filteredTransactions.filter(t => !isInternal(t)).forEach(t => {
+  filteredTransactions.forEach(t => {
     const d = new Date(t['תאריך חיוב']);
     if (isNaN(d)) return;
     const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
@@ -2144,6 +2164,140 @@ async function importTransactions() {
 }
 
 // ====== UI UTILS ======
+
+function renderTrends() {
+  if (!allTransactions.length) return;
+
+  // Populate year filter
+  const yearSel = document.getElementById('trend-year');
+  const years = [...new Set(allTransactions.map(t => {
+    const d = new Date(t['תאריך חיוב']);
+    return isNaN(d) ? null : d.getFullYear();
+  }).filter(Boolean))].sort();
+  const curYear = yearSel.value;
+  yearSel.innerHTML = '<option value="">כל השנים</option>' + years.map(y => `<option value="${y}">${y}</option>`).join('');
+  if (curYear) yearSel.value = curYear;
+
+  // Populate source filter
+  const srcSel = document.getElementById('trend-source');
+  const curSrc = srcSel.value;
+  const sources = [...new Set(allTransactions.map(t => t['מקור']).filter(Boolean))].sort();
+  srcSel.innerHTML = '<option value="">כל המקורות</option>' + sources.map(s => `<option value="${s}">${s}</option>`).join('');
+  if (curSrc) srcSel.value = curSrc;
+
+  // Populate category filter
+  const catSel = document.getElementById('trend-cat');
+  const curCat = catSel.value;
+  const cats = [...new Set(allTransactions.map(t => t['קטגוריה']).filter(Boolean))].sort();
+  catSel.innerHTML = '<option value="">כל הקטגוריות</option>' + cats.map(c => `<option value="${c}">${c}</option>`).join('');
+  if (curCat) catSel.value = curCat;
+
+  // Get filter values
+  const year   = document.getElementById('trend-year').value;
+  const type   = document.getElementById('trend-type').value;
+  const source = document.getElementById('trend-source').value;
+  const cat    = document.getElementById('trend-cat').value;
+  const desc   = document.getElementById('trend-desc').value.toLowerCase();
+
+  // Filter transactions
+  const filtered = allTransactions.filter(t => {
+    if (isInternal(t)) return false;
+    if (t['סוג'] !== type) return false;
+    const d = new Date(t['תאריך חיוב']);
+    if (year && (isNaN(d) || d.getFullYear() != year)) return false;
+    if (source && t['מקור'] !== source) return false;
+    if (cat && t['קטגוריה'] !== cat) return false;
+    if (desc && !(t['תיאור'] || '').toLowerCase().includes(desc)) return false;
+    return true;
+  });
+
+  // Group by month
+  const byMonth = {};
+  filtered.forEach(t => {
+    const d = new Date(t['תאריך חיוב']);
+    if (isNaN(d)) return;
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    byMonth[key] = (byMonth[key] || 0) + parseFloat(t['סכום'] || 0);
+  });
+
+  const months = Object.keys(byMonth).sort();
+  const values = months.map(m => byMonth[m]);
+  const total  = values.reduce((s, v) => s + v, 0);
+  const avg    = values.length ? total / values.length : 0;
+  const max    = values.length ? Math.max(...values) : 0;
+  const maxMonth = months[values.indexOf(max)];
+
+  // Summary cards
+  const heMonths = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+  function monthLabel(key) {
+    const [y, m] = key.split('-');
+    return heMonths[parseInt(m)-1] + ' ' + y;
+  }
+
+  document.getElementById('trend-summary').innerHTML = `
+    <div style="background:var(--card2);border-radius:10px;padding:12px 18px;min-width:120px">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:4px">סה"כ</div>
+      <div style="font-size:18px;font-weight:700;color:var(--accent)">${formatMoney(total)}</div>
+    </div>
+    <div style="background:var(--card2);border-radius:10px;padding:12px 18px;min-width:120px">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:4px">ממוצע חודשי</div>
+      <div style="font-size:18px;font-weight:700">${formatMoney(avg)}</div>
+    </div>
+    <div style="background:var(--card2);border-radius:10px;padding:12px 18px;min-width:120px">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:4px">חודש שיא</div>
+      <div style="font-size:18px;font-weight:700;color:var(--expense)">${maxMonth ? monthLabel(maxMonth) : '—'}</div>
+      <div style="font-size:11px;color:var(--text3)">${max ? formatMoney(max) : ''}</div>
+    </div>
+    <div style="background:var(--card2);border-radius:10px;padding:12px 18px;min-width:80px">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:4px">חודשים</div>
+      <div style="font-size:18px;font-weight:700">${months.length}</div>
+    </div>`;
+
+  // Bar chart
+  if (!months.length) {
+    document.getElementById('trend-chart').innerHTML = '<p style="color:var(--text3);font-size:13px;padding:40px;text-align:center">אין נתונים לתצוגה</p>';
+  } else {
+    const barColor = type === 'הוצאה' ? 'var(--expense)' : 'var(--income)';
+    const barW = Math.max(28, Math.min(60, Math.floor(700 / months.length) - 8));
+    const chartH = 220;
+    const bars = months.map((m, i) => {
+      const pct = max ? (values[i] / max) * chartH : 0;
+      const [y, mo] = m.split('-');
+      const label = heMonths[parseInt(mo)-1].substring(0,3) + "'" + y.substring(2);
+      return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;min-width:${barW}px;max-width:80px">
+        <div style="font-size:10px;color:var(--text3);writing-mode:vertical-rl;transform:rotate(180deg);max-height:60px;overflow:hidden">${formatMoney(values[i])}</div>
+        <div style="width:${barW}px;height:${Math.round(pct)}px;background:${barColor};border-radius:4px 4px 0 0;transition:height 0.3s;min-height:2px"></div>
+        <div style="font-size:10px;color:var(--text3);writing-mode:vertical-rl;transform:rotate(180deg)">${label}</div>
+      </div>`;
+    }).join('');
+    document.getElementById('trend-chart').innerHTML =
+      `<div style="display:flex;align-items:flex-end;gap:4px;overflow-x:auto;padding:8px 0;min-height:${chartH+80}px">${bars}</div>`;
+  }
+
+  // Table
+  document.getElementById('trend-table-head').innerHTML =
+    '<tr style="border-bottom:2px solid var(--border)">' +
+    '<th style="text-align:right;padding:8px;color:var(--text3);font-size:12px">חודש</th>' +
+    '<th style="text-align:left;padding:8px;color:var(--text3);font-size:12px;direction:ltr">סכום</th>' +
+    '<th style="text-align:left;padding:8px;color:var(--text3);font-size:12px">עסקאות</th>' +
+    '</tr>';
+
+  const countByMonth = {};
+  filtered.forEach(t => {
+    const d = new Date(t['תאריך חיוב']);
+    if (isNaN(d)) return;
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    countByMonth[key] = (countByMonth[key] || 0) + 1;
+  });
+
+  document.getElementById('trend-table-body').innerHTML = months.slice().reverse().map(m => `
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:8px;font-size:13px">${monthLabel(m)}</td>
+      <td style="padding:8px;font-size:13px;direction:ltr;text-align:left;font-weight:600">${formatMoney(byMonth[m])}</td>
+      <td style="padding:8px;font-size:13px;color:var(--text3)">${countByMonth[m]}</td>
+    </tr>`).join('');
+}
+
 function switchTab(tab) {
   document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
@@ -2151,6 +2305,7 @@ function switchTab(tab) {
   document.getElementById('tab-' + tab).classList.add('active');
   if (tab === 'charts') renderCharts();
   if (tab === 'rules') { renderRules(); renderCatList(); }
+  if (tab === 'trends') renderTrends();
 }
 
 function openModal(id) { document.getElementById(id).classList.add('open'); }
