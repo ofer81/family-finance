@@ -907,6 +907,8 @@
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwd-SlBN7bH1wpdK97lva4ilAE8AW-nBj1278OtHJTZcZXFNiyMbqvPjXB83E8PzHdvBg/exec';
 
 let allTransactions = [];
+const INTERNAL_TRANSFER = 'העברה פנימית';
+function isInternal(t) { return (t['קטגוריה'] || '') === INTERNAL_TRANSFER; }
 let filteredTransactions = [];
 let categories = [];
 let selectedType = 'הוצאה';
