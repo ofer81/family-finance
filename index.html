@@ -582,6 +582,7 @@
     </div>
   </div>
   <div class="header-actions">
+    <button id="load-all-btn" onclick="loadData(false, true)" style="background:var(--card);border:1px solid var(--border);color:var(--text2);padding:6px 12px;border-radius:8px;cursor:pointer;font-family:Heebo,sans-serif;font-size:12px;display:none">⤵️ טען כל היסטוריה</button>
     <button class="sync-btn" onclick="loadData(true)">
       <span class="sync-icon">🔄</span>
       <span>רענן</span>
@@ -939,13 +940,18 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 // ====== DATA ======
-async function loadData(forceRefresh = false) {
+let _loadedAll = false;
+
+async function loadData(forceRefresh = false, loadAll = false) {
   const syncBtn = document.querySelector('.sync-btn');
   syncBtn.classList.add('loading');
 
+  const monthsBack = loadAll ? '' : '12';
+  const txUrl = SCRIPT_URL + '?action=getTransactions' + (monthsBack ? '&monthsBack=' + monthsBack : '');
+
   try {
     const [txRes, catRes] = await Promise.all([
-      fetch(SCRIPT_URL + '?action=getTransactions'),
+      fetch(txUrl),
       fetch(SCRIPT_URL + '?action=getCategories')
     ]);
     const txData = await txRes.json();
@@ -954,6 +960,8 @@ async function loadData(forceRefresh = false) {
     if (txData.success) {
       allTransactions = txData.data || [];
       filteredTransactions = [...allTransactions];
+      _loadedAll = loadAll;
+      updateLoadAllBtn();
     }
 
     if (catData.success) {
@@ -971,11 +979,23 @@ async function loadData(forceRefresh = false) {
     renderTable();
     renderCharts();
     populateMonthFilter();
+    populateSourceFilter();
 
   } catch (err) {
     showToast('שגיאה בטעינת נתונים', 'error');
   } finally {
     syncBtn.classList.remove('loading');
+  }
+}
+
+function updateLoadAllBtn() {
+  const btn = document.getElementById('load-all-btn');
+  if (!btn) return;
+  if (_loadedAll) {
+    btn.style.display = 'none';
+  } else {
+    btn.style.display = '';
+    btn.textContent = '⤵️ טען כל היסטוריה';
   }
 }
 
