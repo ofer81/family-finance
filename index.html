@@ -770,7 +770,7 @@
 
   <!-- TRENDS TAB -->
   <div class="tab-content" id="tab-content-trends">
-    <div style="padding:16px 20px;display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;border-bottom:1px solid var(--border)">
+    <div style="padding:16px 20px;display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;border-bottom:1px solid var(--border);position:sticky;top:56px;background:var(--bg);z-index:10">
       <div class="filter-group">
         <label>📅 שנה</label>
         <select class="filter-select" id="trend-year" onchange="renderTrends()">
@@ -816,10 +816,8 @@
         </select>
       </div>
     </div>
-    <div class="chart-card" style="margin:20px">
-      <div id="trend-summary" style="display:flex;gap:24px;margin-bottom:16px;flex-wrap:wrap"></div>
-      <div id="trend-chart" style="width:100%;min-height:260px"></div>
-    </div>
+    <div id="trend-summary" style="display:flex;gap:16px;flex-wrap:wrap;padding:12px 20px;border-bottom:1px solid var(--border)"></div>
+    <div id="trend-chart" style="width:100%;min-height:260px;padding:0 20px"></div>
     <div class="chart-card" style="margin:0 20px 20px">
       <table style="width:100%;border-collapse:collapse;font-size:13px">
         <thead id="trend-table-head"></thead>
@@ -1127,8 +1125,8 @@ function renderTable() {
           const safeNotes = (t['הערות'] || '').replace(/'/g, "\\'");
           return `
             <tr data-row="${t._row}">
-              <td data-label="תאריך חיוב">${t['תאריך חיוב'] ? new Date(t['תאריך חיוב']).toLocaleDateString('he-IL') : ''}</td>
-              <td data-label="תאריך עסקה">${t['תאריך עסקה'] ? new Date(t['תאריך עסקה']).toLocaleDateString('he-IL') : ''}</td>
+              <td data-label="תאריך חיוב">${formatDate(t['תאריך חיוב'])}</td>
+              <td data-label="תאריך עסקה">${formatDate(t['תאריך עסקה'])}</td>
               <td data-label="תיאור" class="editable" ondblclick="editCell(this, '${t._row}', 'תיאור', '${safeDesc}')">${t['תיאור'] || ''}</td>
               <td data-label="קטגוריה">
                 <select class="inline-select" onchange="updateField(${t._row}, 'קטגוריה', this.value)">
@@ -2324,7 +2322,7 @@ function renderTrends() {
     const sortedTx = (txByMonth[m] || []).slice().sort((a,b) => window._trendSortDesc ? parseFloat(b['סכום']||0) - parseFloat(a['סכום']||0) : parseFloat(a['סכום']||0) - parseFloat(b['סכום']||0));
     const txRows = sortedTx.map(t => `
       <tr class="trend-detail-row" data-month="${m}" style="display:none;background:var(--card2)">
-        <td style="padding:5px 8px 5px 24px;font-size:12px;color:var(--text)">${t['תאריך עסקה'] || t['תאריך חיוב'] || ''}</td>
+        <td style="padding:5px 8px 5px 24px;font-size:12px;color:var(--text)">${formatDate(t['תאריך עסקה'] || t['תאריך חיוב'])}</td>
         <td style="padding:5px 8px;font-size:12px;direction:ltr;text-align:left;color:var(--text)">${formatMoney(t['סכום'])}</td>
         <td style="padding:5px 8px;font-size:12px;color:var(--text)">${t['תיאור'] || ''}</td>
       </tr>`).join('');
@@ -2358,12 +2356,14 @@ function renderTrendsGrouped(filtered) {
   const groups = {};
   filtered.forEach(t => {
     const key = t[groupBy] || '(ללא)';
-    if (!groups[key]) groups[key] = { total: 0, txByMonth: {} };
+    if (!groups[key]) groups[key] = { total: 0, txByMonth: {}, txByMonthList: {} };
     groups[key].total += parseFloat(t['סכום'] || 0);
     const d = new Date(t['תאריך חיוב']);
     if (!isNaN(d)) {
       const mkey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
       groups[key].txByMonth[mkey] = (groups[key].txByMonth[mkey] || 0) + parseFloat(t['סכום'] || 0);
+      if (!groups[key].txByMonthList[mkey]) groups[key].txByMonthList[mkey] = [];
+      groups[key].txByMonthList[mkey].push(t);
     }
   });
 
@@ -2390,11 +2390,23 @@ function renderTrendsGrouped(filtered) {
   document.getElementById('trend-table-body').innerHTML = sortedGroups.map(([name, data]) => {
     const safeKey = 'g-' + encodeKey(name);
     const months = Object.keys(data.txByMonth).sort().reverse();
-    const detailRows = months.map(m => `
-      <tr class="trend-detail-row" data-month="${safeKey}" style="display:none;background:var(--card2)">
-        <td style="padding:5px 8px 5px 24px;font-size:12px;color:var(--text)">${monthLabel(m)}</td>
-        <td style="padding:5px 8px;font-size:12px;color:var(--text);direction:ltr;text-align:left;font-weight:600">${formatMoney(data.txByMonth[m])}</td>
-      </tr>`).join('');
+    const detailRows = months.map(m => {
+      const safeMKey = safeKey + '-' + m;
+      const txRows = (data.txByMonthList[m] || []).map(t => `
+        <tr class="trend-detail-row" data-month="${safeMKey}" style="display:none;background:var(--bg2)">
+          <td style="padding:4px 8px 4px 40px;font-size:11px;color:var(--text3)">${formatDate(t['תאריך עסקה'] || t['תאריך חיוב'])}</td>
+          <td style="padding:4px 8px;font-size:11px;color:var(--text);direction:ltr;text-align:left">${formatMoney(t['סכום'])}</td>
+        </tr>`).join('');
+      return `
+        <tr class="trend-detail-row" data-month="${safeKey}" style="display:none;background:var(--card2);cursor:pointer" onclick="toggleTrendMonth('${safeMKey}')">
+          <td style="padding:5px 8px 5px 24px;font-size:12px;color:var(--text)">
+            <span id="trend-toggle-${safeMKey}" style="display:inline-block;margin-left:6px;font-size:11px;color:var(--text3)">&#43;</span>
+            ${monthLabel(m)}
+          </td>
+          <td style="padding:5px 8px;font-size:12px;color:var(--text);direction:ltr;text-align:left;font-weight:600">${formatMoney(data.txByMonth[m])}</td>
+        </tr>
+        ${txRows}`;
+    }).join('');
     return `
     <tr class="trend-month-row" onclick="toggleTrendMonth('${safeKey}')" style="border-bottom:1px solid var(--border);cursor:pointer" onmouseover="this.style.background='var(--card2)'" onmouseout="this.style.background=''">
       <td style="padding:8px;font-size:13px">
@@ -2506,6 +2518,24 @@ function downloadPreviewExcel() {
   showToast('הקובץ הורד ✓', 'success');
 }
 
+
+function formatDate(val) {
+  if (!val) return '';
+  const s = String(val);
+  // Remove time part if present
+  const clean = s.split('T')[0].replace(/Z$/, '');
+  // Already DD/MM/YYYY
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(clean)) return clean;
+  // YYYY-MM-DD → DD/MM/YYYY
+  const m = clean.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) return m[3] + '/' + m[2] + '/' + m[1];
+  // Try Date object
+  const d = new Date(val);
+  if (!isNaN(d)) {
+    return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
+  }
+  return clean;
+}
 
 function formatMoney(n) {
   return '₪' + parseFloat(n || 0).toLocaleString('he-IL', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
