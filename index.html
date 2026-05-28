@@ -715,9 +715,13 @@
         <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
           <input type="text" class="filter-input" id="rule-text" placeholder="טקסט לחיפוש בתיאור העסקה..." style="flex:2;min-width:200px">
           <select class="filter-select" id="rule-type" style="flex:1;min-width:120px">
+            <option value="">כולם</option>
             <option value="הוצאה">💸 הוצאה</option>
             <option value="הכנסה">💰 הכנסה</option>
             <option value="חסכון">🏦 חסכון</option>
+          </select>
+          <select class="filter-select" id="rule-source" style="flex:1;min-width:140px">
+            <option value="">כל המקורות</option>
           </select>
           <select class="filter-select" id="rule-cat" style="flex:1;min-width:120px">
             <option value="">ללא קטגוריה ספציפית</option>
@@ -961,6 +965,7 @@ async function loadData(forceRefresh = false) {
       categories = catData.data || [];
       populateCategoryFilter();
       populateCategorySelect();
+  populateRuleSource();
       const ruleCat = document.getElementById('rule-cat');
       if (ruleCat) {
         ruleCat.innerHTML = '<option value="">ללא קטגוריה ספציפית</option>' +
@@ -1050,6 +1055,16 @@ function populateCategoryFilter() {
     sel.innerHTML += `<option value="${c['קטגוריה']}">${c['קטגוריה']}</option>`;
   });
   sel.value = current;
+}
+
+function populateRuleSource() {
+  const sel = document.getElementById('rule-source');
+  if (!sel) return;
+  const cur = sel.value;
+  const sources = [...new Set(allTransactions.map(t => t['מקור']).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">כל המקורות</option>' +
+    sources.map(s => `<option value="${s}">${s}</option>`).join('');
+  if (cur) sel.value = cur;
 }
 
 function populateCategorySelect() {
@@ -1453,12 +1468,13 @@ function toggleAmountFields() {
 function addRule() {
   const text = document.getElementById('rule-text').value.trim();
   const type = document.getElementById('rule-type').value;
+  const source = document.getElementById('rule-source').value;
   const cat = document.getElementById('rule-cat').value;
   const op = document.getElementById('rule-amount-op').value;
   const amountVal = document.getElementById('rule-amount-exact').value;
   const amountMax = document.getElementById('rule-amount-max').value;
   if (!text) { showToast('נא להכניס טקסט לחיפוש', 'error'); return; }
-  const rule = { text, type, cat, amountOp: op };
+  const rule = { text, type, source, cat, amountOp: op };
   if (op && amountVal) rule.amountVal = parseFloat(amountVal);
   if (op === 'range' && amountMax) rule.amountMax = parseFloat(amountMax);
   rules.push(rule);
@@ -1482,7 +1498,8 @@ function deleteRule(idx) {
 function editRule(idx) {
   const r = rules[idx];
   document.getElementById('rule-text').value = r.text;
-  document.getElementById('rule-type').value = r.type;
+  document.getElementById('rule-type').value = r.type || '';
+  document.getElementById('rule-source').value = r.source || '';
   document.getElementById('rule-cat').value = r.cat || '';
   document.getElementById('rule-amount-op').value = r.amountOp || '';
   document.getElementById('rule-amount-exact').value = r.amountVal || r.amountExact || '';
@@ -1561,12 +1578,14 @@ function applyRulesToRows(rows) {
     const amount = parseFloat(row['סכום'] || 0);
     for (const rule of rules) {
       if (!desc.includes(rule.text.toLowerCase())) continue;
+      if (rule.type && row['סוג'] !== rule.type) continue;
+      if (rule.source && (row['מקור'] || '') !== rule.source) continue;
       if (rule.amountOp === 'exact' && rule.amountVal && Math.abs(amount - rule.amountVal) > 0.01) continue;
       if (rule.amountOp === 'min' && rule.amountVal && amount < rule.amountVal) continue;
       if (rule.amountOp === 'max' && rule.amountVal && amount > rule.amountVal) continue;
       if (rule.amountOp === 'range' && rule.amountVal && rule.amountMax && (amount < rule.amountVal || amount > rule.amountMax)) continue;
       if (!rule.amountOp && rule.amountExact && Math.abs(amount - rule.amountExact) > 0.01) continue;
-      row['סוג'] = rule.type;
+      if (rule.type) row['סוג'] = rule.type;
       if (rule.cat) row['קטגוריה'] = rule.cat;
     }
     return row;
@@ -1637,7 +1656,7 @@ function renderRules() {
     return `
     <div class="rule-item">
       <div class="rule-text">
-        אם התיאור מכיל <span>"${r.text}"</span>${amountStr} → סווג כ-<span>${r.type}</span>
+        אם התיאור מכיל <span>"${r.text}"</span>${r.source ? ' ומקור <span>' + r.source + '</span>' : ''}${r.type ? ' וסוג <span>' + r.type + '</span>' : ''}${amountStr} → קטגוריה: <span>${r.cat || '(ללא שינוי)'}</span>
         ${r.cat ? `בקטגוריה <span>${r.cat}</span>` : ''}
       </div>
       <div style="display:flex;gap:6px">
