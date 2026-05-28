@@ -17,19 +17,19 @@
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0f1923;
-    --bg2: #162030;
-    --bg3: #1e2d3d;
-    --card: #1a2840;
-    --card2: #213350;
-    --border: #2a3f5a;
-    --accent: #00c9a7;
-    --accent2: #0099ff;
+    --bg: #f5f7fa;
+    --bg2: #eef1f5;
+    --bg3: #e4e8ef;
+    --card: #ffffff;
+    --card2: #f0f3f8;
+    --border: #d0d7e3;
+    --accent: #0099cc;
+    --accent2: #0066ff;
     --danger: #ff4d6d;
     --warning: #ffb830;
-    --text: #e8f0f8;
-    --text2: #8ba5c0;
-    --text3: #4a6580;
+    --text: #1a2233;
+    --text2: #3a4a66;
+    --text3: #6677aa;
     --income: #00c9a7;
     --expense: #ff4d6d;
     --radius: 14px;
@@ -799,6 +799,21 @@
       <div class="filter-group">
         <label>🔍 תיאור</label>
         <input type="text" class="filter-select" id="trend-desc" placeholder="חיפוש חופשי..." oninput="renderTrends()" style="width:160px">
+      </div>
+      <div class="filter-group" style="margin-right:auto">
+        <label>👁 תצוגה</label>
+        <div style="display:flex;gap:6px">
+          <button id="trend-view-month" onclick="setTrendView('month')" style="padding:5px 12px;border-radius:6px;border:1px solid var(--border);cursor:pointer;font-family:Heebo,sans-serif;font-size:12px;background:var(--accent);color:white;font-weight:600">לפי חודש</button>
+          <button id="trend-view-group" onclick="setTrendView('group')" style="padding:5px 12px;border-radius:6px;border:1px solid var(--border);cursor:pointer;font-family:Heebo,sans-serif;font-size:12px;background:var(--card);color:var(--text)">לפי קיבוץ</button>
+        </div>
+      </div>
+      <div class="filter-group" id="trend-groupby-wrap" style="display:none">
+        <label>📊 קבץ לפי</label>
+        <select class="filter-select" id="trend-groupby" onchange="renderTrends()">
+          <option value="תיאור">בית עסק</option>
+          <option value="קטגוריה">קטגוריה</option>
+          <option value="מקור">מקור</option>
+        </select>
       </div>
     </div>
     <div class="chart-card" style="margin:20px">
@@ -2277,6 +2292,12 @@ function renderTrends() {
   }
 
   // Table
+  // Route to grouped view if selected
+  if (window._trendView === 'group') {
+    renderTrendsGrouped(filtered);
+    return;
+  }
+
   // Group filtered transactions by month for detail rows
   const txByMonth = {};
   filtered.forEach(t => {
@@ -2318,6 +2339,84 @@ function renderTrends() {
     </tr>
     ${txRows}`;
   }).join('');
+}
+
+function setTrendView(view) {
+  window._trendView = view;
+  document.getElementById('trend-view-month').style.background = view === 'month' ? 'var(--accent)' : 'var(--card)';
+  document.getElementById('trend-view-month').style.color = view === 'month' ? 'white' : 'var(--text)';
+  document.getElementById('trend-view-group').style.background = view === 'group' ? 'var(--accent)' : 'var(--card)';
+  document.getElementById('trend-view-group').style.color = view === 'group' ? 'white' : 'var(--text)';
+  document.getElementById('trend-groupby-wrap').style.display = view === 'group' ? '' : 'none';
+  renderTrends();
+}
+
+function renderTrendsGrouped(filtered) {
+  const groupBy = document.getElementById('trend-groupby').value;
+
+  // Group by chosen field
+  const groups = {};
+  filtered.forEach(t => {
+    const key = t[groupBy] || '(ללא)';
+    if (!groups[key]) groups[key] = { total: 0, txByMonth: {} };
+    groups[key].total += parseFloat(t['סכום'] || 0);
+    const d = new Date(t['תאריך חיוב']);
+    if (!isNaN(d)) {
+      const mkey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      groups[key].txByMonth[mkey] = (groups[key].txByMonth[mkey] || 0) + parseFloat(t['סכום'] || 0);
+    }
+  });
+
+  const heMonths = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+  function monthLabel(key) {
+    const [y, m] = key.split('-');
+    return heMonths[parseInt(m)-1] + ' ' + y;
+  }
+
+  // Sort groups by total descending
+  const sortedGroups = Object.entries(groups).sort((a,b) => b[1].total - a[1].total);
+
+  // encode group key for use in HTML attributes
+  function encodeKey(s) { return encodeURIComponent(s).replace(/%/g,'_'); }
+
+  document.getElementById('trend-table-head').innerHTML =
+    '<tr style="border-bottom:2px solid var(--border)">' +
+    '<th style="text-align:right;padding:8px;color:var(--text3);font-size:12px">' +
+    '<button onclick="toggleAllTrendMonths()" style="background:none;border:1px solid var(--border);color:var(--text3);border-radius:4px;cursor:pointer;font-size:12px;padding:1px 6px;margin-left:6px">&#43;</button>' +
+    groupBy + '</th>' +
+    '<th style="text-align:left;padding:8px;color:var(--text3);font-size:12px;direction:ltr">סה"כ</th>' +
+    '</tr>';
+
+  document.getElementById('trend-table-body').innerHTML = sortedGroups.map(([name, data]) => {
+    const safeKey = 'g-' + encodeKey(name);
+    const months = Object.keys(data.txByMonth).sort().reverse();
+    const detailRows = months.map(m => `
+      <tr class="trend-detail-row" data-month="${safeKey}" style="display:none;background:var(--card2)">
+        <td style="padding:5px 8px 5px 24px;font-size:12px;color:var(--text)">${monthLabel(m)}</td>
+        <td style="padding:5px 8px;font-size:12px;color:var(--text);direction:ltr;text-align:left;font-weight:600">${formatMoney(data.txByMonth[m])}</td>
+      </tr>`).join('');
+    return `
+    <tr class="trend-month-row" onclick="toggleTrendMonth('${safeKey}')" style="border-bottom:1px solid var(--border);cursor:pointer" onmouseover="this.style.background='var(--card2)'" onmouseout="this.style.background=''">
+      <td style="padding:8px;font-size:13px">
+        <span id="trend-toggle-${safeKey}" style="display:inline-block;margin-left:6px;font-size:11px;color:var(--text3)">&#43;</span>
+        ${name}
+      </td>
+      <td style="padding:8px;font-size:13px;direction:ltr;text-align:left;font-weight:600">${formatMoney(data.total)}</td>
+    </tr>
+    ${detailRows}`;
+  }).join('');
+
+  document.getElementById('trend-summary').innerHTML = `
+    <div style="background:var(--card2);border-radius:10px;padding:12px 18px;min-width:120px">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:4px">קבוצות</div>
+      <div style="font-size:18px;font-weight:700;color:var(--accent)">${sortedGroups.length}</div>
+    </div>
+    <div style="background:var(--card2);border-radius:10px;padding:12px 18px;min-width:120px">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:4px">סה"כ</div>
+      <div style="font-size:18px;font-weight:700">${formatMoney(sortedGroups.reduce((s,[,d])=>s+d.total,0))}</div>
+    </div>`;
+
+  document.getElementById('trend-chart').innerHTML = '';
 }
 
 function toggleTrendSort() {
