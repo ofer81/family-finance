@@ -582,7 +582,6 @@
     </div>
   </div>
   <div class="header-actions">
-    <button id="load-all-btn" onclick="loadData(false, true)" style="background:var(--card);border:1px solid var(--border);color:var(--text2);padding:6px 12px;border-radius:8px;cursor:pointer;font-family:Heebo,sans-serif;font-size:12px;display:none">⤵️ טען כל היסטוריה</button>
     <button class="sync-btn" onclick="loadData(true)">
       <span class="sync-icon">🔄</span>
       <span>רענן</span>
@@ -940,18 +939,14 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 // ====== DATA ======
-let _loadedAll = false;
-
-async function loadData(forceRefresh = false, loadAll = false) {
+async function loadData(forceRefresh = false) {
   const syncBtn = document.querySelector('.sync-btn');
   syncBtn.classList.add('loading');
 
-  const monthsBack = loadAll ? '' : '12';
-  const txUrl = SCRIPT_URL + '?action=getTransactions' + (monthsBack ? '&monthsBack=' + monthsBack : '');
-
   try {
+    // שלב 1: טען 12 חודשים אחרונים + קטגוריות במקביל
     const [txRes, catRes] = await Promise.all([
-      fetch(txUrl),
+      fetch(SCRIPT_URL + '?action=getTransactions&monthsBack=12'),
       fetch(SCRIPT_URL + '?action=getCategories')
     ]);
     const txData = await txRes.json();
@@ -960,8 +955,6 @@ async function loadData(forceRefresh = false, loadAll = false) {
     if (txData.success) {
       allTransactions = txData.data || [];
       filteredTransactions = [...allTransactions];
-      _loadedAll = loadAll;
-      updateLoadAllBtn();
     }
 
     if (catData.success) {
@@ -986,16 +979,22 @@ async function loadData(forceRefresh = false, loadAll = false) {
   } finally {
     syncBtn.classList.remove('loading');
   }
-}
 
-function updateLoadAllBtn() {
-  const btn = document.getElementById('load-all-btn');
-  if (!btn) return;
-  if (_loadedAll) {
-    btn.style.display = 'none';
-  } else {
-    btn.style.display = '';
-    btn.textContent = '⤵️ טען כל היסטוריה';
+  // שלב 2: טען את שאר ההיסטוריה ברקע
+  try {
+    const allRes = await fetch(SCRIPT_URL + '?action=getTransactions');
+    const allData = await allRes.json();
+    if (allData.success && allData.data.length > allTransactions.length) {
+      allTransactions = allData.data;
+      filteredTransactions = [...allTransactions];
+      updateSummary();
+      renderTable();
+      renderCharts();
+      populateMonthFilter();
+      populateSourceFilter();
+    }
+  } catch (err) {
+    // שגיאה ברקע — לא קריטי
   }
 }
 
@@ -1111,7 +1110,7 @@ function renderTable() {
   const sorted = [...filteredTransactions].sort((a, b) => {
     let aVal = a[sortField] || '';
     let bVal = b[sortField] || '';
-    if (sortField === 'תאריך חיוב' || sortField === 'תאריך עסקה') return sortDir * (new Date(bVal) - new Date(aVal));
+    if (sortField === 'תאריך חיוב' || sortField === 'תאריך עסקה') return sortDir * (new Date(aVal) - new Date(bVal));
     if (sortField === 'סכום') return sortDir * (parseFloat(aVal) - parseFloat(bVal));
     return sortDir * String(aVal).localeCompare(String(bVal), 'he');
   });
