@@ -98,6 +98,9 @@
     padding: 16px 24px 0;
     border-bottom: 1px solid var(--border);
     background: var(--bg);
+    position: sticky;
+    top: 0;
+    z-index: 100;
   }
 
   .nav-btn {
@@ -561,6 +564,14 @@
   }
 
   /* SCROLLBAR */
+  .ms-dropdown { position:relative; display:inline-block; flex:1; min-width:140px; }
+  .ms-btn { width:100%; background:var(--bg3); border:1px solid var(--border); color:var(--text); padding:6px 10px; border-radius:8px; cursor:pointer; font-family:Heebo,sans-serif; font-size:13px; text-align:right; display:flex; justify-content:space-between; align-items:center; }
+  .ms-panel { display:none; position:absolute; top:100%; right:0; background:var(--card); border:1px solid var(--border); border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,0.15); z-index:200; min-width:180px; max-height:260px; overflow-y:auto; padding:6px 0; }
+  .ms-panel.open { display:block; }
+  .ms-item { display:flex; align-items:center; gap:8px; padding:6px 12px; cursor:pointer; font-size:13px; }
+  .ms-item:hover { background:var(--card2); }
+  .ms-item input { accent-color:var(--accent2); width:15px; height:15px; cursor:pointer; }
+  .ms-clear { padding:6px 12px; font-size:11px; color:var(--accent2); cursor:pointer; border-top:1px solid var(--border); margin-top:4px; }
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: var(--bg); }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
@@ -573,28 +584,18 @@
 <body>
 
 <!-- HEADER -->
-<div class="header">
-  <div class="header-logo">
-    <div class="icon">💰</div>
-    <div>
-      <h1>ניהול פיננסי</h1>
-      <p>מעקב הוצאות והכנסות</p>
-    </div>
-  </div>
-  <div class="header-actions">
-    <button class="sync-btn" onclick="loadData(true)">
-      <span class="sync-icon">🔄</span>
-      <span>רענן</span>
-    </button>
-  </div>
-</div>
-
 <!-- NAV -->
 <div class="nav">
   <button class="nav-btn active" onclick="switchTab('transactions')" id="tab-transactions">📋 עסקאות</button>
   <button class="nav-btn" onclick="switchTab('charts')" id="tab-charts">📊 גרפים</button>
   <button class="nav-btn" onclick="switchTab('rules')" id="tab-rules">⚙️ כללים</button>
   <button class="nav-btn" onclick="switchTab('trends')" id="tab-trends">📈 טרנדים</button>
+  <div style="margin-right:auto;display:flex;align-items:center;padding-bottom:4px">
+    <button class="sync-btn" onclick="loadData(true)">
+      <span class="sync-icon">🔄</span>
+      <span>רענן</span>
+    </button>
+  </div>
 </div>
 
 <!-- MAIN -->
@@ -624,13 +625,16 @@
     </div>
   </div>
 
+  <!-- SOURCE DATES BAR -->
+  <div id="source-dates-bar" style="display:flex;flex-wrap:wrap;gap:8px;padding:10px 20px;border-bottom:1px solid var(--border);background:var(--bg2)"></div>
+
   <!-- TRANSACTIONS TAB -->
   <div class="tab-content active" id="tab-content-transactions">
 
     <div class="filters-bar">
       <div class="filter-group">
         <label>🔍 חיפוש</label>
-        <input type="text" class="filter-input" id="search-input" placeholder="תיאור, קטגוריה..." oninput="applyFilters()">
+        <input type="text" class="filter-input" id="search-input" placeholder="תיאור, קטגוריה..." oninput="debouncedFilter()">
       </div>
       <div class="filter-group">
         <label>📅 חודש</label>
@@ -653,6 +657,28 @@
           <option value="">כל הקטגוריות</option>
         </select>
       </div>
+      <div class="filter-group">
+        <label>🏦 מקור</label>
+        <div class="ms-dropdown" id="ms-source">
+          <button class="ms-btn" onclick="toggleMsPanel('ms-source')">
+            <span id="ms-source-label">כל המקורות</span><span>▾</span>
+          </button>
+          <div class="ms-panel" id="ms-source-panel">
+            <div class="ms-clear" onclick="clearMs('ms-source')">נקה הכל</div>
+          </div>
+        </div>
+      </div>
+      <div class="filter-group">
+        <label>📝 הערות</label>
+        <div class="ms-dropdown" id="ms-notes">
+          <button class="ms-btn" onclick="toggleMsPanel('ms-notes')">
+            <span id="ms-notes-label">כל ההערות</span><span>▾</span>
+          </button>
+          <div class="ms-panel" id="ms-notes-panel">
+            <div class="ms-clear" onclick="clearMs('ms-notes')">נקה הכל</div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="actions-bar">
@@ -664,6 +690,7 @@
       <div class="table-header-row">
         <span class="table-title">רשימת עסקאות</span>
         <span class="table-count" id="table-count">0 עסקאות</span>
+        <button id="load-more-btn" onclick="loadMoreRows()" style="display:none;background:none;border:1px solid var(--border);color:var(--text2);padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px;font-family:Heebo,sans-serif">הצג עוד...</button>
       </div>
       <div id="table-container">
         <div class="loading-state">
@@ -774,7 +801,7 @@
 
   <!-- TRENDS TAB -->
   <div class="tab-content" id="tab-content-trends">
-    <div style="padding:16px 20px;display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;border-bottom:1px solid var(--border);position:sticky;top:56px;background:var(--bg);z-index:10">
+    <div style="padding:16px 20px;display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;border-bottom:1px solid var(--border);position:sticky;top:57px;background:var(--bg);z-index:10">
       <div class="filter-group">
         <label>📅 שנה</label>
         <select class="filter-select" id="trend-year" onchange="renderTrends()">
@@ -784,6 +811,7 @@
       <div class="filter-group">
         <label>💰 סוג</label>
         <select class="filter-select" id="trend-type" onchange="renderTrends()">
+          <option value="">הכל</option>
           <option value="הוצאה">הוצאות</option>
           <option value="הכנסה">הכנסות</option>
         </select>
@@ -932,6 +960,8 @@ let selectedType = 'הוצאה';
 let parsedRows = [];
 let sortField = 'תאריך חיוב';
 let sortDir = -1;
+const PAGE_SIZE = 150;
+let currentPage = 0;
 
 // ====== INIT ======
 window.addEventListener('DOMContentLoaded', () => {
@@ -978,6 +1008,9 @@ async function loadData(forceRefresh = false) {
     renderCharts();
     populateMonthFilter();
     populateSourceFilter();
+    renderSourceDates();
+    populateSourceMs();
+    populateNotesMs();
 
   } catch (err) {
     showToast('שגיאה בטעינת נתונים', 'error');
@@ -985,25 +1018,58 @@ async function loadData(forceRefresh = false) {
     syncBtn.classList.remove('loading');
   }
 
-  // שלב 2: טען את שאר ההיסטוריה ברקע
+  // טעינת היסטוריה מלאה ברקע — אחרי 2 שניות כדי לא לחסום את הממשק
+  setTimeout(loadFullHistory, 2000);
+}
+
+async function loadFullHistory() {
   try {
-    const allRes = await fetch(SCRIPT_URL + '?action=getTransactions');
-    const allData = await allRes.json();
-    if (allData.success && allData.data.length > allTransactions.length) {
-      allTransactions = allData.data;
-      filteredTransactions = [...allTransactions];
-      updateSummary();
-      renderTable();
-      renderCharts();
+    const res = await fetch(SCRIPT_URL + '?action=getTransactions');
+    const data = await res.json();
+    if (data.success && data.data.length > allTransactions.length) {
+      allTransactions = data.data;
+      applyFilters();
       populateMonthFilter();
       populateSourceFilter();
+      populateSourceMs();
+      populateNotesMs();
+      renderSourceDates();
     }
-  } catch (err) {
+  } catch(e) {
     // שגיאה ברקע — לא קריטי
   }
 }
 
 // ====== SUMMARY ======
+function renderSourceDates() {
+  const bar = document.getElementById('source-dates-bar');
+  if (!bar) return;
+
+  // מצא תאריך אחרון לכל מקור
+  const lastDate = {};
+  allTransactions.forEach(t => {
+    const src = t['מקור'] || 'ללא מקור';
+    const d = new Date(t['תאריך חיוב']);
+    if (!isNaN(d) && (!lastDate[src] || d > lastDate[src])) lastDate[src] = d;
+  });
+
+  // צבע לפי ותק
+  function cardColor(d) {
+    const days = (new Date() - d) / 86400000;
+    if (days <= 35) return '#dcfce7'; // ירוק — עדכני
+    if (days <= 70) return '#fef9c3'; // צהוב — חודש-חודשיים
+    return '#fee2e2'; // אדום — ישן
+  }
+
+  bar.innerHTML = Object.entries(lastDate)
+    .sort((a,b) => b[1] - a[1])
+    .map(([src, d]) => `
+      <div style="background:${cardColor(d)};border-radius:8px;padding:5px 12px;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:110px">
+        <span style="font-weight:600;color:#1a2233">${src}</span>
+        <span style="color:#4a5568">${formatDate(d.toISOString().split('T')[0])}</span>
+      </div>`).join('');
+}
+
 function updateSummary() {
   const source = filteredTransactions;
   const income = source.filter(t => t['סוג'] === 'הכנסה').reduce((s, t) => s + parseFloat(t['סכום'] || 0), 0);
@@ -1076,6 +1142,83 @@ function populateCategorySelect() {
   });
 }
 
+// ===== MULTI-SELECT DROPDOWNS =====
+const msSelected = { 'ms-source': new Set(), 'ms-notes': new Set() };
+let _filterTimer = null;
+function debouncedFilter() {
+  clearTimeout(_filterTimer);
+  _filterTimer = setTimeout(applyFilters, 280);
+}
+
+function toggleMsPanel(id) {
+  document.querySelectorAll('.ms-panel').forEach(p => {
+    if (p.id !== id + '-panel') p.classList.remove('open');
+  });
+  document.getElementById(id + '-panel').classList.toggle('open');
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.ms-dropdown')) {
+    document.querySelectorAll('.ms-panel').forEach(p => p.classList.remove('open'));
+  }
+});
+
+function populateMs(id, values) {
+  const panel = document.getElementById(id + '-panel');
+  const clearBtn = panel.querySelector('.ms-clear');
+  // Remove old items
+  panel.querySelectorAll('.ms-item').forEach(el => el.remove());
+  // Add items before clear button
+  values.sort().forEach(val => {
+    const item = document.createElement('label');
+    item.className = 'ms-item';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.value = val;
+    cb.checked = msSelected[id].has(val);
+    cb.onchange = () => {
+      if (cb.checked) msSelected[id].add(val); else msSelected[id].delete(val);
+      updateMsLabel(id);
+      applyFilters();
+    };
+    item.appendChild(cb);
+    item.appendChild(document.createTextNode(val));
+    panel.insertBefore(item, clearBtn);
+  });
+  updateMsLabel(id);
+}
+
+function updateMsLabel(id) {
+  const sel = msSelected[id];
+  const labels = { 'ms-source': ['כל המקורות', 'מקורות'], 'ms-notes': ['כל ההערות', 'הערות'] };
+  const [allLabel, countLabel] = labels[id];
+  const span = document.getElementById(id + '-label');
+  if (sel.size === 0) span.textContent = allLabel;
+  else span.textContent = sel.size + ' ' + countLabel + ' נבחרו';
+}
+
+function clearMs(id) {
+  msSelected[id].clear();
+  document.querySelectorAll('#' + id + '-panel input[type=checkbox]').forEach(cb => cb.checked = false);
+  updateMsLabel(id);
+  applyFilters();
+}
+
+function populateSourceMs() {
+  const sources = [...new Set(allTransactions.map(t => t['מקור']).filter(Boolean))];
+  populateMs('ms-source', sources);
+}
+
+function populateNotesMs() {
+  const notes = [...new Set(allTransactions.map(t => t['הערות']).filter(Boolean))];
+  populateMs('ms-notes', notes);
+}
+
+function loadMoreRows() {
+  currentPage++;
+  renderTable();
+}
+
 function applyFilters() {
   const search = document.getElementById('search-input').value.toLowerCase();
   const month = document.getElementById('month-filter').value;
@@ -1098,19 +1241,25 @@ function applyFilters() {
 
     const matchType = !type || t['סוג'] === type;
     const matchCat = !cat || t['קטגוריה'] === cat;
+    const matchSource = msSelected['ms-source'].size === 0 || msSelected['ms-source'].has(t['מקור'] || '');
+    const matchNotes = msSelected['ms-notes'].size === 0 || msSelected['ms-notes'].has(t['הערות'] || '');
 
-    return matchSearch && matchMonth && matchType && matchCat;
+    return matchSearch && matchMonth && matchType && matchCat && matchSource && matchNotes;
   });
 
+  currentPage = 0;
   updateSummary();
   renderTable();
-  renderCharts();
+  // גרפים יתעדכנו רק כשעוברים לטאב גרפים
 }
 
 // ====== TABLE ======
 function renderTable() {
   const container = document.getElementById('table-container');
-  document.getElementById('table-count').textContent = filteredTransactions.length + ' עסקאות';
+  const shown = Math.min((currentPage + 1) * PAGE_SIZE, filteredTransactions.length);
+  document.getElementById('table-count').textContent = shown + ' מתוך ' + filteredTransactions.length + ' עסקאות';
+  const loadMoreBtn = document.getElementById('load-more-btn');
+  if (loadMoreBtn) loadMoreBtn.style.display = shown < filteredTransactions.length ? '' : 'none';
 
   if (filteredTransactions.length === 0) {
     container.innerHTML = `
@@ -1150,7 +1299,7 @@ function renderTable() {
         </tr>
       </thead>
       <tbody>
-        ${sorted.map(t => {
+        ${sorted.slice(0, (currentPage + 1) * PAGE_SIZE).map(t => {
           const isIncome = t['סוג'] === 'הכנסה';
           const isSaving = t['סוג'] === 'חסכון';
           const amount = parseFloat(t['סכום'] || 0);
@@ -2255,7 +2404,7 @@ function renderTrends() {
   // Filter transactions
   const filtered = allTransactions.filter(t => {
     if (isInternal(t)) return false;
-    if (t['סוג'] !== type) return false;
+    if (type && t['סוג'] !== type) return false;
     const d = new Date(t['תאריך חיוב']);
     if (year && (isNaN(d) || d.getFullYear() != year)) return false;
     if (source && t['מקור'] !== source) return false;
@@ -2264,13 +2413,16 @@ function renderTrends() {
     return true;
   });
 
-  // Group by month
+  // Group by month — אם "הכל": יתרה (הכנסות פחות הוצאות)
   const byMonth = {};
   filtered.forEach(t => {
     const d = new Date(t['תאריך חיוב']);
     if (isNaN(d)) return;
     const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-    byMonth[key] = (byMonth[key] || 0) + parseFloat(t['סכום'] || 0);
+    const amount = parseFloat(t['סכום'] || 0);
+    if ((!type || type === '') && t['סוג'] === 'חסכון') return; // חיסכון לא נכלל ביתרה
+    const delta = (!type || type === '') ? (t['סוג'] === 'הכנסה' ? amount : -amount) : amount;
+    byMonth[key] = (byMonth[key] || 0) + delta;
   });
 
   const months = Object.keys(byMonth).sort();
@@ -2358,12 +2510,17 @@ function renderTrends() {
   const reversedMonths = months.slice().reverse();
   document.getElementById('trend-table-body').innerHTML = reversedMonths.map(m => {
     const sortedTx = (txByMonth[m] || []).slice().sort((a,b) => window._trendSortDesc ? parseFloat(b['סכום']||0) - parseFloat(a['סכום']||0) : parseFloat(a['סכום']||0) - parseFloat(b['סכום']||0));
-    const txRows = sortedTx.map(t => `
+    const txRows = sortedTx.map(t => {
+      const typ = t['סוג'] || '';
+      const color = typ === 'הכנסה' ? 'var(--income)' : typ === 'חסכון' ? '#f59e0b' : 'var(--expense)';
+      const prefix = typ === 'הכנסה' ? '+' : typ === 'חסכון' ? '' : '-';
+      return `
       <tr class="trend-detail-row" data-month="${m}" style="display:none;background:var(--card2)">
         <td style="padding:5px 8px 5px 24px;font-size:12px;color:var(--text)">${formatDate(t['תאריך עסקה'] || t['תאריך חיוב'])}</td>
-        <td style="padding:5px 8px;font-size:12px;direction:ltr;text-align:left;color:var(--text)">${formatMoney(t['סכום'])}</td>
+        <td style="padding:5px 8px;font-size:12px;direction:ltr;text-align:left;color:${color};font-weight:600">${prefix}${formatMoney(t['סכום'])}</td>
         <td style="padding:5px 8px;font-size:12px;color:var(--text)">${t['תיאור'] || ''}</td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
     return `
     <tr class="trend-month-row" data-month="${m}" onclick="toggleTrendMonth('${m}')" style="border-bottom:1px solid var(--border);cursor:pointer" onmouseover="this.style.background='var(--card2)'" onmouseout="this.style.background=''">
       <td style="padding:8px;font-size:13px">
