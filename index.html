@@ -256,6 +256,7 @@
   .amount-cell { font-weight: 700; font-size: 15px; direction: ltr; text-align: right; }
   .amount-cell.income { color: var(--income); }
   .amount-cell.expense { color: var(--expense); }
+  .amount-cell.saving { color: #f59e0b; }
 
   .type-badge {
     display: inline-flex; align-items: center; gap: 4px;
@@ -1327,7 +1328,7 @@ function renderTable() {
               <td data-label="מקור"><span class="source-text">${t['מקור'] || ''}</span></td>
               <td data-label="הערות" class="editable" ondblclick="editCell(this, '${t._row}', 'הערות', '${safeNotes}')">${t['הערות'] || '<span style="color:var(--text3);font-size:11px">לחץ פעמיים</span>'}</td>
               <td data-label="סכום">
-                <span class="amount-cell ${isIncome ? 'income' : isSaving ? '' : 'expense'}">
+                <span class="amount-cell ${isIncome ? 'income' : isSaving ? 'saving' : 'expense'}">
                   ${isIncome ? '+' : isSaving ? '🏦' : '-'}${formatMoney(amount)}
                 </span>
               </td>
