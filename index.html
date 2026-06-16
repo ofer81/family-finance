@@ -1383,7 +1383,8 @@ function renderMonthChart() {
     const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
     if (!byMonth[key]) byMonth[key] = { income: 0, expense: 0 };
     if (t['סוג'] === 'הכנסה') byMonth[key].income += parseFloat(t['סכום'] || 0);
-    else byMonth[key].expense += parseFloat(t['סכום'] || 0);
+    else if (t['סוג'] === 'הוצאה') byMonth[key].expense += parseFloat(t['סכום'] || 0);
+    // חיסכון לא נכלל בגרף
   });
 
   const months = Object.keys(byMonth).sort().slice(-6);
@@ -1898,6 +1899,93 @@ async function processSingleFile(file, statusEl) {
 }
 
 // קריאת Excel ישירות — ללא AI
+
+// פירוש קובץ "כל הכרטיסים" — מספר sheets (שקלים/דולרים/אירו), כל אחד עם כמה בלוקי כרטיסים
+function parseAllCardsWorkbook(workbook) {
+  function toDateStrLocal(val) {
+    if (val instanceof Date) {
+      const adjusted = new Date(val.getTime() + 12 * 60 * 60 * 1000);
+      const y = adjusted.getUTCFullYear();
+      const m = String(adjusted.getUTCMonth() + 1).padStart(2, '0');
+      const d = String(adjusted.getUTCDate()).padStart(2, '0');
+      return y + '-' + m + '-' + d;
+    }
+    if (typeof val === 'string') {
+      const m = val.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (m) return m[3] + '-' + m[2].padStart(2,'0') + '-' + m[1].padStart(2,'0');
+    }
+    return null;
+  }
+
+  // מיפוי ארבע ספרות אחרונות → שם מקור (אותו מיפוי כמו בקבצים האחרים)
+  function sourceFromLast4(last4) {
+    if (last4 === '4707') return 'אשראי פליי קארד';
+    if (last4 === '1920') return 'פליי קארד ישן';
+    if (last4 === '2274') return 'אשראי מורן';
+    if (last4 === '0159') return 'אשראי עופר';
+    return 'אשראי ' + last4;
+  }
+
+  const results = [];
+
+  workbook.SheetNames.forEach(sheetName => {
+    if (!sheetName.includes('חיובים')) return;
+    const sheet = workbook.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true });
+    if (!rows.length) return;
+
+    let currentSource = '';
+    let inDataBlock = false;
+
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      const cell0 = String(r[0] || '');
+
+      // שורת כותרת כרטיס חדש: "חשבון כרטיס: ... ארבע ספרות אחרונות XXXX"
+      const cardMatch = cell0.match(/ארבע ספרות אחרונות\s*(\d{4})/);
+      if (cardMatch) {
+        currentSource = sourceFromLast4(cardMatch[1]);
+        inDataBlock = false;
+        continue;
+      }
+
+      // שורת headers — מתחילה בלוק נתונים
+      if (cell0.includes('תאריך חיוב')) {
+        inDataBlock = true;
+        continue;
+      }
+
+      if (!inDataBlock) continue;
+
+      // שורת נתונים: col0=תאריך חיוב, col1=תאריך עסקה, col2=בית עסק, col3=סכום עסקה, col4=סכום חיוב
+      const chargeDate = toDateStrLocal(r[0]);
+      const txDate = toDateStrLocal(r[1]);
+      const desc = String(r[2] || '').trim();
+      if (!chargeDate && !txDate) { inDataBlock = false; continue; } // סוף בלוק (שורה ריקה)
+      if (!desc) continue;
+
+      const amountTx = parseFloat(r[3]) || 0;
+      const amountCharge = parseFloat(r[4]) || amountTx;
+      const type = amountCharge < 0 ? 'הכנסה' : 'הוצאה';
+
+      results.push({
+        'תאריך חיוב':      chargeDate || txDate,
+        'תאריך עסקה':     txDate || chargeDate,
+        'תיאור':           desc,
+        'קטגוריה':         '',
+        'סוג':             type,
+        'מקור':            currentSource,
+        'סכום':            Math.abs(amountCharge),
+        'סכום העסקה':     Math.abs(amountTx),
+        'הערות תשלומים':  '',
+        'הערות':           ''
+      });
+    }
+  });
+
+  return results;
+}
+
 async function parseExcelDirectly(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -1905,6 +1993,14 @@ async function parseExcelDirectly(file) {
       try {
         const data = new Uint8Array(e.target.result);
         const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+
+        // בדוק אם זה קובץ "כל הכרטיסים" — מספר sheets בשם "חיובים ב..."
+        const isAllCardsFormat = workbook.SheetNames.some(n => n.includes('חיובים'));
+        if (isAllCardsFormat) {
+          resolve(parseAllCardsWorkbook(workbook));
+          return;
+        }
+
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
         const allRows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true });
@@ -1941,7 +2037,7 @@ async function parseExcelDirectly(file) {
         let source = '';
         const headerText = String(allRows[0] ? allRows[0][0] : '');
         if (headerText.includes('4707')) source = 'אשראי פליי קארד';
-        else if (headerText.includes('1920')) source = 'אשראשי פלאיי קארד ישן';
+        else if (headerText.includes('1920')) source = 'פליי קארד ישן';
         else if (headerText.includes('2274')) source = 'אשראי מורן';
         else if (headerText.includes('0159')) source = 'אשראי עופר';
         else if (headerText.includes('מזרחי')) source = 'בנק מזרחי';
