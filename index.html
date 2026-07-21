@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -2052,16 +2051,21 @@ async function parseExcelDirectly(file) {
             dataStart = i;
             break;
           }
-          // שמור את שורת הheaders
-          if (r[0] && String(r[0]).includes('תאריך')) headerRow = r;
+          // שמור את שורת הheaders (תומך גם בשבירת שורה)
+          if (r[0] && String(r[0]).replace(/\n/g,'').includes('תאריך')) headerRow = r;
         }
         if (dataStart === -1) { resolve([]); return; }
 
         // זיהוי מבנה לפי headers: האם col3 = "סכום חיוב" או "מועד חיוב"
-        const col3Header = headerRow ? String(headerRow[3] || '') : '';
-        const hasSeparateChargeAmount = col3Header.includes('סכום') && col3Header.includes('חיוב');
-        // מבנה 4707: col2=סכום עסקה, col3=סכום חיוב, col6=הערות
+        const col3Header = headerRow ? String(headerRow[3] || '').replace(/\n/g,'') : '';
+        const col4Header = headerRow ? String(headerRow[4] || '').replace(/\n/g,'') : '';
+        // מבנה 4707 ישן: col2=סכום עסקה, col3=סכום חיוב
+        // מבנה 4707 חדש: col2=תאריך עסקה, col3=סכום עסקה, col4=סכום חיוב (כשיש רק תאריך עסקה)
         // מבנה 1920: col2=סכום בש"ח, col3=מועד חיוב (תאריך), col7=הערות
+        // אחרי הסרת newline, "סכום\nחיוב" הופך ל-"סכוםחיוב" — לכן בודקים contains על החלק
+        function hasCharge(s) { return s.includes('חיוב') && (s.includes('סכום') || s.includes('סכוםח')); }
+        const hasSeparateChargeAmount = hasCharge(col3Header) || hasCharge(col4Header);
+        const chargeAmountCol = hasCharge(col4Header) ? 4 : 3;
 
         const results = [];
         for (let i = dataStart; i < allRows.length; i++) {
@@ -2074,9 +2078,9 @@ async function parseExcelDirectly(file) {
           let amount, amountTx, chargeDateRow, notes;
 
           if (hasSeparateChargeAmount) {
-            // מבנה 4707
-            amountTx    = parseFloat(r[2]) || 0;
-            amount      = parseFloat(r[3]) || amountTx;
+            // מבנה 4707: txCol=סכום עסקה, chargeAmountCol=סכום חיוב
+            amountTx    = parseFloat(r[chargeAmountCol - 1]) || 0;
+            amount      = parseFloat(r[chargeAmountCol]) || amountTx;
             chargeDateRow = chargeDate;
             notes       = String(r[6] || '').trim();
           } else {
