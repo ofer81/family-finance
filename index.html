@@ -2078,10 +2078,15 @@ async function parseExcelDirectly(file) {
           let amount, amountTx, chargeDateRow, notes;
           if (results.length === 0) console.log('DEBUG chargeCol:', chargeAmountCol, 'col3:', col3Header, 'col4:', col4Header, 'r:', JSON.stringify(r));
 
-          if (hasSeparateChargeAmount) {
-            // מבנה 4707: txCol=סכום עסקה, chargeAmountCol=סכום חיוב
-            amountTx    = parseFloat(r[chargeAmountCol - 1]) || 0;
-            amount      = parseFloat(r[chargeAmountCol]) || amountTx;
+          // זיהוי מבנה לפי תוכן העמודות: אם col3 הוא מספר (לא תאריך) — מבנה 4707
+          const col3IsNumber = !isNaN(parseFloat(r[3])) && isFinite(r[3]);
+          const col3IsDate = toDateStr(r[3]) !== null;
+          const is4707Format = hasSeparateChargeAmount || (col3IsNumber && !col3IsDate);
+
+          if (is4707Format) {
+            // מבנה 4707: col1=תיאור, col2=סכום עסקה, col3=סכום חיוב
+            amountTx    = parseFloat(r[2]) || 0;
+            amount      = parseFloat(r[3]) || amountTx;
             chargeDateRow = chargeDate;
             notes       = String(r[6] || '').trim();
           } else {
