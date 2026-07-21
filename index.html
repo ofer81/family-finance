@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -1899,6 +1900,94 @@ async function processSingleFile(file, statusEl) {
 
 // קריאת Excel ישירות — ללא AI
 
+// פירוש קובץ ישראכרט — sheet "פירוט עסקאות"
+function parseIsracardWorkbook(workbook) {
+  const results = [];
+
+  workbook.SheetNames.forEach(sheetName => {
+    if (!sheetName.includes('פירוט')) return;
+    const sheet = workbook.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
+
+    // זיהוי מקור ותאריך חיוב מהכותרות
+    let source = 'אשראי ישראכרט רמי לוי';
+    let chargeDate = '';
+
+    for (let i = 0; i < Math.min(10, rows.length); i++) {
+      const r = rows[i];
+      const cell0 = String(r[0] || '');
+      const cell7 = String(r[7] || '');
+
+      // זיהוי כרטיס: "מסטרקארד - 4042"
+      const cardMatch = cell0.match(/(\d{4})/);
+      if (cardMatch && cell0.includes('-')) {
+        const last4 = cardMatch[1];
+        if (last4 === '4042') source = 'אשראי ישראכרט רמי לוי';
+        else source = 'אשראי ישראכרט ' + last4;
+      }
+
+      // תאריך חיוב: "לחיוב ב-10.07"
+      const chargeMatch = cell7.match(/לחיוב ב[-.]?(\d{1,2})[.](\d{1,2})/);
+      if (chargeMatch) {
+        const day = chargeMatch[1].padStart(2,'0');
+        const month = chargeMatch[2].padStart(2,'0');
+        // שנה מהחודש — אם חודש > חודש נוכחי, שנה קודמת
+        const now = new Date();
+        let year = now.getFullYear();
+        if (parseInt(month) > now.getMonth() + 1) year--;
+        chargeDate = year + '-' + month + '-' + day;
+      }
+    }
+
+    // מצא שורת headers (תאריך רכישה)
+    let dataStart = -1;
+    for (let i = 0; i < rows.length; i++) {
+      if (String(rows[i][0] || '').includes('תאריך')) {
+        dataStart = i + 1;
+        break;
+      }
+    }
+    if (dataStart === -1) return;
+
+    // DD.MM.YY → YYYY-MM-DD
+    function parseDMY(s) {
+      const m = String(s || '').match(/^(\d{1,2})\.(\d{1,2})\.(\d{2,4})$/);
+      if (!m) return null;
+      const year = m[3].length === 2 ? '20' + m[3] : m[3];
+      return year + '-' + m[2].padStart(2,'0') + '-' + m[1].padStart(2,'0');
+    }
+
+    for (let i = dataStart; i < rows.length; i++) {
+      const r = rows[i];
+      const txDate = parseDMY(r[0]);
+      if (!txDate) continue; // שורת סיכום או ריקה
+      const desc = String(r[1] || '').trim();
+      if (!desc) continue;
+      const amountTx   = parseFloat(String(r[2] || '').replace(/[^\d.-]/g,'')) || 0;
+      const amountCharge = parseFloat(String(r[4] || '').replace(/[^\d.-]/g,'')) || amountTx;
+      const notes = String(r[7] || '').trim();
+
+      const type = amountCharge < 0 ? 'הכנסה' : 'הוצאה';
+
+      results.push({
+        'תאריך חיוב':     chargeDate || txDate,
+        'תאריך עסקה':    txDate,
+        'תיאור':          desc,
+        'קטגוריה':        '',
+        'סוג':            type,
+        'מקור':           source,
+        'סכום':           Math.abs(amountCharge),
+        'סכום העסקה':    Math.abs(amountTx),
+        'הערות תשלומים': notes,
+        'הערות':          ''
+      });
+    }
+  });
+
+  return results;
+}
+
+
 // פירוש קובץ "כל הכרטיסים" — מספר sheets (שקלים/דולרים/אירו), כל אחד עם כמה בלוקי כרטיסים
 function parseAllCardsWorkbook(workbook) {
   function toDateStrLocal(val) {
@@ -1997,6 +2086,13 @@ async function parseExcelDirectly(file) {
         const isAllCardsFormat = workbook.SheetNames.some(n => n.includes('חיובים'));
         if (isAllCardsFormat) {
           resolve(parseAllCardsWorkbook(workbook));
+          return;
+        }
+
+        // בדוק אם זה קובץ ישראכרט — sheet בשם "פירוט עסקאות"
+        const isIsracardFormat = workbook.SheetNames.some(n => n.includes('פירוט עסקאות'));
+        if (isIsracardFormat) {
+          resolve(parseIsracardWorkbook(workbook));
           return;
         }
 
