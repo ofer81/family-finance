@@ -2076,8 +2076,6 @@ async function parseExcelDirectly(file) {
           if (!desc) continue;
 
           let amount, amountTx, chargeDateRow, notes;
-          if (results.length === 0) console.log('DEBUG chargeCol:', chargeAmountCol, 'col3:', col3Header, 'col4:', col4Header, 'r:', JSON.stringify(r));
-
           // זיהוי מבנה לפי תוכן העמודות: אם col3 הוא מספר (לא תאריך) — מבנה 4707
           const col3IsNumber = !isNaN(parseFloat(r[3])) && isFinite(r[3]);
           const col3IsDate = toDateStr(r[3]) !== null;
