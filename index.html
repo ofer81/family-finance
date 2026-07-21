@@ -1964,7 +1964,7 @@ function parseIsracardWorkbook(workbook) {
       const desc = String(r[1] || '').trim();
       if (!desc) continue;
       const amountTx   = parseFloat(String(r[2] || '').replace(/[^\d.-]/g,'')) || 0;
-      const amountCharge = parseFloat(String(r[4] || '').replace(/[^\d.-]/g,'')) || amountTx;
+      const amountCharge = parseFloat(String(r[4] || '').replace(/[^\d.-]/g,'')) || 0;
       const notes = String(r[7] || '').trim();
 
       const type = amountCharge < 0 ? 'הכנסה' : 'הוצאה';
