@@ -2076,6 +2076,7 @@ async function parseExcelDirectly(file) {
           if (!desc) continue;
 
           let amount, amountTx, chargeDateRow, notes;
+          if (results.length === 0) console.log('DEBUG chargeCol:', chargeAmountCol, 'col3:', col3Header, 'col4:', col4Header, 'r:', JSON.stringify(r));
 
           if (hasSeparateChargeAmount) {
             // מבנה 4707: txCol=סכום עסקה, chargeAmountCol=סכום חיוב
