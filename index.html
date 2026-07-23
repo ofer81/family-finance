@@ -251,7 +251,7 @@
   tbody tr { border-bottom: 1px solid rgba(42, 63, 90, 0.5); transition: background 0.15s; }
   tbody tr:last-child { border-bottom: none; }
   tbody tr:hover { background: var(--card2); }
-  tbody td { padding: 13px 16px; font-size: 14px; color: var(--text); }
+  tbody td { padding: 13px 16px; font-size: 14px; color: var(--text); vertical-align: middle; }
 
   .amount-cell { font-weight: 700; font-size: 15px; direction: ltr; text-align: right; }
   .amount-cell.income { color: var(--income); }
@@ -1411,9 +1411,9 @@ function renderTable() {
                 <button class="delete-btn" onclick="deleteTransaction(${t._row})" title="מחק">🗑️</button>
               </td>
             </tr>
-            <tr id="mh-${t._row}" style="display:none">
-              <td colspan="11" style="padding:0;background:var(--bg2)">
-                <div id="mh-content-${t._row}" style="padding:8px 24px"></div>
+            <tr id="mh-${t._row}" style="display:none;line-height:0">
+              <td colspan="11" style="padding:0;margin:0;background:var(--bg2);border-bottom:none">
+                <div id="mh-content-${t._row}" style="padding:8px 24px;line-height:1.4"></div>
               </td>
             </tr>`;
         }).join('')}
