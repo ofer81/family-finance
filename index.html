@@ -251,7 +251,7 @@
   tbody tr { border-bottom: 1px solid rgba(42, 63, 90, 0.5); transition: background 0.15s; }
   tbody tr:last-child { border-bottom: none; }
   tbody tr:hover { background: var(--card2); }
-  tbody td { padding: 13px 16px; font-size: 14px; color: var(--text); vertical-align: middle; }
+  tbody td { padding: 13px 16px; font-size: 14px; color: var(--text); vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   .amount-cell { font-weight: 700; font-size: 15px; direction: ltr; text-align: right; }
   .amount-cell.income { color: var(--income); }
@@ -1369,7 +1369,7 @@ function renderTable() {
         <col style="width:90px">
         <col style="width:90px">
         <col style="width:110px">
-        <col style="width:60px">
+        <col style="width:50px">
       </colgroup>
       <thead>
         <tr>
@@ -1420,7 +1420,7 @@ function renderTable() {
               </td>
               <td data-label="סכום עסקה" style="color:var(--text2);font-size:12px">${t['סכום העסקה'] ? formatMoney(t['סכום העסקה']) : ''}</td>
               <td data-label="הערות תשלומים" style="color:var(--text2);font-size:12px">${t['הערות תשלומים'] || ''}</td>
-              <td>
+              <td style="overflow:visible;text-align:center">
                 <button class="delete-btn" onclick="deleteTransaction(${t._row})" title="מחק">🗑️</button>
               </td>
             </tr>
