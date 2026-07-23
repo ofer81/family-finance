@@ -1260,19 +1260,20 @@ function renderMerchantHistory(rowId, desc) {
     const total = txs.reduce((s,t) => s + parseFloat(t['סכום']||0), 0);
     const safeKey = rowId + '-' + mkey;
     const txRows = txs.map(t => `
-      <tr id="txrow-${safeKey}" class="mh-tx-row" data-mhkey="${safeKey}" style="display:none;background:var(--bg3)">
-        <td style="padding:3px 8px 3px 40px;font-size:11px;color:var(--text)">${formatDate(t['תאריך עסקה']||t['תאריך חיוב'])}</td>
-        <td style="padding:3px 8px;font-size:11px;color:${t['סוג']==='הכנסה'?'var(--income)':t['סוג']==='חסכון'?'#f59e0b':'var(--expense)'};text-align:right;font-weight:600;min-width:80px">${t['סוג']==='הכנסה'?'+':t['סוג']==='חסכון'?'':'-'}${formatMoney(t['סכום'])}</td>
-        <td style="padding:3px 8px;font-size:11px;color:var(--text3)">${t['מקור']||''}</td>
+      <tr class="mh-tx-row" data-mhkey="${safeKey}" style="display:none;background:var(--bg3)">
+        <td style="padding:3px 8px 3px 32px;font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${formatDate(t['תאריך עסקה']||t['תאריך חיוב'])}</td>
+        <td style="padding:3px 8px;font-size:11px;color:${t['סוג']==='הכנסה'?'var(--income)':t['סוג']==='חסכון'?'#f59e0b':'var(--expense)'};font-weight:600;text-align:right">${t['סוג']==='הכנסה'?'+':t['סוג']==='חסכון'?'':'-'}${formatMoney(t['סכום'])}</td>
+        <td style="padding:3px 8px;font-size:11px;color:var(--text3);text-align:right">${t['מקור']||''}</td>
       </tr>`).join('');
-    return `<table style="width:100%;border-collapse:collapse">
+    return `<table style="width:100%;border-collapse:collapse;table-layout:fixed">
+      <colgroup><col style="width:200px"><col style="width:110px"><col></colgroup>
       <tr onclick="toggleMhMonth('${safeKey}')" style="cursor:pointer;border-top:1px solid var(--border)" onmouseover="this.style.background='var(--card2)'" onmouseout="this.style.background=''">
-        <td style="padding:5px 8px 5px 16px;font-size:12px">
-          <span id="mh-m-${safeKey}" style="margin-left:6px;font-size:11px;color:var(--text3)">&#43;</span>
+        <td style="padding:5px 8px 5px 16px;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+          <span id="mh-m-${safeKey}" style="margin-left:6px;font-size:11px;color:var(--text3)">+</span>
           ${label}
         </td>
-        <td style="padding:5px 8px;font-size:12px;text-align:left;font-weight:600;min-width:80px">${formatMoney(total)}</td>
-        <td style="padding:5px 8px;font-size:12px;color:var(--text3)">${txs.length} עסקאות</td>
+        <td style="padding:5px 8px;font-size:12px;font-weight:600;text-align:right">${formatMoney(total)}</td>
+        <td style="padding:5px 8px;font-size:12px;color:var(--text3);text-align:right">${txs.length} עסקאות</td>
       </tr>
       ${txRows}
     </table>`;
@@ -1282,9 +1283,10 @@ function renderMerchantHistory(rowId, desc) {
 function toggleMhMonth(key) {
   const rows = document.querySelectorAll(`.mh-tx-row[data-mhkey="${key}"]`);
   const icon = document.getElementById('mh-m-' + key);
-  const isOpen = icon && icon.innerHTML.trim() === '&minus;';
+  if (!icon) return;
+  const isOpen = icon.textContent.trim() === '−' || icon.innerHTML.includes('minus') || icon.innerHTML === '&minus;';
   rows.forEach(r => r.style.display = isOpen ? 'none' : '');
-  if (icon) icon.innerHTML = isOpen ? '&#43;' : '&minus;';
+  icon.textContent = isOpen ? '+' : '−';
 }
 
 function loadMoreRows() {
@@ -1383,7 +1385,7 @@ function renderTable() {
             <tr data-row="${t._row}">
               <td data-label="תאריך חיוב">${formatDate(t['תאריך חיוב'])}</td>
               <td data-label="תאריך עסקה">${formatDate(t['תאריך עסקה'])}</td>
-              <td data-label="תיאור" class="editable" ondblclick="editCell(this, '${t._row}', 'תיאור', '${safeDesc}')">${t['תיאור'] || ''}</td>
+              <td data-label="תיאור" class="editable" style="white-space:nowrap" ondblclick="editCell(this, '${t._row}', 'תיאור', '${safeDesc}')"><button onclick="toggleMerchantHistory('mh-${t._row}', '${safeDesc}')" style="background:none;border:1px solid var(--border);color:var(--text3);border-radius:4px;cursor:pointer;font-size:11px;padding:1px 6px;margin-left:6px;vertical-align:middle" id="mh-btn-${t._row}">&#43;</button>${t['תיאור'] || ''}</td>
               <td data-label="קטגוריה">
                 <select class="inline-select" onchange="updateField(${t._row}, 'קטגוריה', this.value)">
                   ${categories.map(c => `<option value="${c['קטגוריה']}" ${c['קטגוריה'] === t['קטגוריה'] ? 'selected' : ''}>${c['קטגוריה']}</option>`).join('')}
@@ -1405,8 +1407,7 @@ function renderTable() {
               </td>
               <td data-label="סכום עסקה" style="color:var(--text2);font-size:12px">${t['סכום העסקה'] ? formatMoney(t['סכום העסקה']) : ''}</td>
               <td data-label="הערות תשלומים" style="color:var(--text2);font-size:12px">${t['הערות תשלומים'] || ''}</td>
-              <td style="white-space:nowrap">
-                <button onclick="toggleMerchantHistory('mh-${t._row}', '${safeDesc}')" style="background:none;border:1px solid var(--border);color:var(--text3);border-radius:4px;cursor:pointer;font-size:11px;padding:1px 6px;margin-left:4px" title="היסטוריית בית עסק" id="mh-btn-${t._row}">&#43;</button>
+              <td>
                 <button class="delete-btn" onclick="deleteTransaction(${t._row})" title="מחק">🗑️</button>
               </td>
             </tr>
