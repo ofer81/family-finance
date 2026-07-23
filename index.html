@@ -176,7 +176,7 @@
     display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
   }
 
-  .filter-group { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 140px; }
+  .filter-group { display: flex; align-items: center; gap: 8px; min-width: 0; flex-shrink: 0; }
   .filter-group label { font-size: 12px; color: var(--text2); white-space: nowrap; }
 
   .filter-select, .filter-input {
@@ -1020,13 +1020,13 @@ async function loadData(forceRefresh = false) {
       }
     }
 
+    buildMerchantIndex();
     updateSummary();
     renderTable();
     renderCharts();
     populateMonthFilter();
     populateSourceFilter();
     renderSourceDates();
-    buildMerchantIndex();
     populateSourceMs();
     populateNotesMs();
 
@@ -1262,7 +1262,7 @@ function renderMerchantHistory(rowId, desc) {
     const txRows = txs.map(t => `
       <tr id="txrow-${safeKey}" class="mh-tx-row" data-mhkey="${safeKey}" style="display:none;background:var(--bg3)">
         <td style="padding:3px 8px 3px 40px;font-size:11px;color:var(--text)">${formatDate(t['תאריך עסקה']||t['תאריך חיוב'])}</td>
-        <td style="padding:3px 8px;font-size:11px;color:${t['סוג']==='הכנסה'?'var(--income)':t['סוג']==='חסכון'?'#f59e0b':'var(--expense)'};direction:ltr;text-align:left;font-weight:600">${t['סוג']==='הכנסה'?'+':t['סוג']==='חסכון'?'':'-'}${formatMoney(t['סכום'])}</td>
+        <td style="padding:3px 8px;font-size:11px;color:${t['סוג']==='הכנסה'?'var(--income)':t['סוג']==='חסכון'?'#f59e0b':'var(--expense)'};text-align:right;font-weight:600;min-width:80px">${t['סוג']==='הכנסה'?'+':t['סוג']==='חסכון'?'':'-'}${formatMoney(t['סכום'])}</td>
         <td style="padding:3px 8px;font-size:11px;color:var(--text3)">${t['מקור']||''}</td>
       </tr>`).join('');
     return `<table style="width:100%;border-collapse:collapse">
@@ -1271,7 +1271,7 @@ function renderMerchantHistory(rowId, desc) {
           <span id="mh-m-${safeKey}" style="margin-left:6px;font-size:11px;color:var(--text3)">&#43;</span>
           ${label}
         </td>
-        <td style="padding:5px 8px;font-size:12px;direction:ltr;text-align:left;font-weight:600">${formatMoney(total)}</td>
+        <td style="padding:5px 8px;font-size:12px;text-align:left;font-weight:600;min-width:80px">${formatMoney(total)}</td>
         <td style="padding:5px 8px;font-size:12px;color:var(--text3)">${txs.length} עסקאות</td>
       </tr>
       ${txRows}
