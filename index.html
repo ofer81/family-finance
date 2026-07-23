@@ -964,6 +964,21 @@ let sortField = 'תאריך חיוב';
 let sortDir = -1;
 const PAGE_SIZE = 150;
 let currentPage = 0;
+let merchantIndex = {}; // desc → { months: { YYYY-MM: [transactions] } }
+
+function buildMerchantIndex() {
+  merchantIndex = {};
+  [...allTransactions].sort((a, b) => new Date(b['תאריך חיוב']) - new Date(a['תאריך חיוב'])).forEach(t => {
+    const desc = (t['תיאור'] || '').trim();
+    if (!desc) return;
+    const d = parseLocalDate(t['תאריך חיוב']);
+    if (isNaN(d)) return;
+    const mkey = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+    if (!merchantIndex[desc]) merchantIndex[desc] = {};
+    if (!merchantIndex[desc][mkey]) merchantIndex[desc][mkey] = [];
+    merchantIndex[desc][mkey].push(t);
+  });
+}
 
 // ====== INIT ======
 window.addEventListener('DOMContentLoaded', () => {
@@ -1011,6 +1026,7 @@ async function loadData(forceRefresh = false) {
     populateMonthFilter();
     populateSourceFilter();
     renderSourceDates();
+    buildMerchantIndex();
     populateSourceMs();
     populateNotesMs();
 
@@ -1036,6 +1052,7 @@ async function loadFullHistory() {
       populateSourceMs();
       populateNotesMs();
       renderSourceDates();
+      buildMerchantIndex();
     }
   } catch(e) {
     // שגיאה ברקע — לא קריטי
@@ -1216,6 +1233,60 @@ function populateNotesMs() {
   populateMs('ms-notes', notes);
 }
 
+function toggleMerchantHistory(rowId, desc) {
+  const row = document.getElementById(rowId);
+  const btn = document.getElementById('mh-btn-' + rowId.replace('mh-',''));
+  if (!row) return;
+  const isOpen = row.style.display !== 'none';
+  row.style.display = isOpen ? 'none' : '';
+  btn.innerHTML = isOpen ? '&#43;' : '&minus;';
+  if (!isOpen) renderMerchantHistory(rowId, desc);
+}
+
+function renderMerchantHistory(rowId, desc) {
+  const content = document.getElementById('mh-content-' + rowId.replace('mh-',''));
+  if (!content) return;
+  const months = merchantIndex[desc];
+  if (!months || Object.keys(months).length === 0) {
+    content.innerHTML = '<p style="color:var(--text3);font-size:12px;padding:8px">אין עסקאות נוספות</p>';
+    return;
+  }
+  const heMonths = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+  const sortedMonths = Object.keys(months).sort().reverse();
+  content.innerHTML = sortedMonths.map(mkey => {
+    const [y, m] = mkey.split('-');
+    const label = heMonths[parseInt(m)-1] + ' ' + y;
+    const txs = months[mkey];
+    const total = txs.reduce((s,t) => s + parseFloat(t['סכום']||0), 0);
+    const safeKey = rowId + '-' + mkey;
+    const txRows = txs.map(t => `
+      <tr id="txrow-${safeKey}" class="mh-tx-row" data-mhkey="${safeKey}" style="display:none;background:var(--bg3)">
+        <td style="padding:3px 8px 3px 40px;font-size:11px;color:var(--text)">${formatDate(t['תאריך עסקה']||t['תאריך חיוב'])}</td>
+        <td style="padding:3px 8px;font-size:11px;color:${t['סוג']==='הכנסה'?'var(--income)':t['סוג']==='חסכון'?'#f59e0b':'var(--expense)'};direction:ltr;text-align:left;font-weight:600">${t['סוג']==='הכנסה'?'+':t['סוג']==='חסכון'?'':'-'}${formatMoney(t['סכום'])}</td>
+        <td style="padding:3px 8px;font-size:11px;color:var(--text3)">${t['מקור']||''}</td>
+      </tr>`).join('');
+    return `<table style="width:100%;border-collapse:collapse">
+      <tr onclick="toggleMhMonth('${safeKey}')" style="cursor:pointer;border-top:1px solid var(--border)" onmouseover="this.style.background='var(--card2)'" onmouseout="this.style.background=''">
+        <td style="padding:5px 8px 5px 16px;font-size:12px">
+          <span id="mh-m-${safeKey}" style="margin-left:6px;font-size:11px;color:var(--text3)">&#43;</span>
+          ${label}
+        </td>
+        <td style="padding:5px 8px;font-size:12px;direction:ltr;text-align:left;font-weight:600">${formatMoney(total)}</td>
+        <td style="padding:5px 8px;font-size:12px;color:var(--text3)">${txs.length} עסקאות</td>
+      </tr>
+      ${txRows}
+    </table>`;
+  }).join('');
+}
+
+function toggleMhMonth(key) {
+  const rows = document.querySelectorAll(`.mh-tx-row[data-mhkey="${key}"]`);
+  const icon = document.getElementById('mh-m-' + key);
+  const isOpen = icon && icon.innerHTML.trim() === '&minus;';
+  rows.forEach(r => r.style.display = isOpen ? 'none' : '');
+  if (icon) icon.innerHTML = isOpen ? '&#43;' : '&minus;';
+}
+
 function loadMoreRows() {
   currentPage++;
   renderTable();
@@ -1334,8 +1405,14 @@ function renderTable() {
               </td>
               <td data-label="סכום עסקה" style="color:var(--text2);font-size:12px">${t['סכום העסקה'] ? formatMoney(t['סכום העסקה']) : ''}</td>
               <td data-label="הערות תשלומים" style="color:var(--text2);font-size:12px">${t['הערות תשלומים'] || ''}</td>
-              <td>
+              <td style="white-space:nowrap">
+                <button onclick="toggleMerchantHistory('mh-${t._row}', '${safeDesc}')" style="background:none;border:1px solid var(--border);color:var(--text3);border-radius:4px;cursor:pointer;font-size:11px;padding:1px 6px;margin-left:4px" title="היסטוריית בית עסק" id="mh-btn-${t._row}">&#43;</button>
                 <button class="delete-btn" onclick="deleteTransaction(${t._row})" title="מחק">🗑️</button>
+              </td>
+            </tr>
+            <tr id="mh-${t._row}" style="display:none">
+              <td colspan="11" style="padding:0;background:var(--bg2)">
+                <div id="mh-content-${t._row}" style="padding:8px 24px"></div>
               </td>
             </tr>`;
         }).join('')}
