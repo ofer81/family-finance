@@ -1234,6 +1234,7 @@ function populateNotesMs() {
 }
 
 function toggleMerchantHistory(rowId, desc) {
+  desc = decodeURIComponent(desc);
   const row = document.getElementById(rowId);
   const btn = document.getElementById('mh-btn-' + rowId.replace('mh-',''));
   if (!row) return;
@@ -1244,6 +1245,7 @@ function toggleMerchantHistory(rowId, desc) {
 }
 
 function renderMerchantHistory(rowId, desc) {
+  desc = decodeURIComponent(desc);
   const content = document.getElementById('mh-content-' + rowId.replace('mh-',''));
   if (!content) return;
   const months = merchantIndex[desc];
@@ -1369,7 +1371,6 @@ function renderTable() {
         <col style="width:90px">
         <col style="width:90px">
         <col style="width:110px">
-        <col style="width:50px">
       </colgroup>
       <thead>
         <tr>
@@ -1383,7 +1384,6 @@ function renderTable() {
           <th onclick="sortBy('סכום')" style="cursor:pointer">סכום ${sortField==='סכום' ? (sortDir===1?'↑':'↓') : '↕'}</th>
           <th onclick="sortBy('סכום העסקה')" style="cursor:pointer">סכום עסקה ${sortField==='סכום העסקה' ? (sortDir===1?'↑':'↓') : '↕'}</th>
           <th>הערות תשלומים</th>
-          <th></th>
         </tr>
       </thead>
       <tbody>
@@ -1392,13 +1392,13 @@ function renderTable() {
           const isSaving = t['סוג'] === 'חסכון';
           const amount = parseFloat(t['סכום'] || 0);
           const dateStr = t['תאריך'] ? parseLocalDate(t['תאריך']).toLocaleDateString('he-IL') : '';
-          const safeDesc = (t['תיאור'] || '').replace(/'/g, "\\'");
+          const safeDesc = encodeURIComponent(t['תיאור'] || '');
           const safeNotes = (t['הערות'] || '').replace(/'/g, "\\'");
           return `
             <tr data-row="${t._row}">
               <td data-label="תאריך חיוב">${formatDate(t['תאריך חיוב'])}</td>
               <td data-label="תאריך עסקה">${formatDate(t['תאריך עסקה'])}</td>
-              <td data-label="תיאור" class="editable" style="white-space:nowrap" ondblclick="editCell(this, '${t._row}', 'תיאור', '${safeDesc}')"><button onclick="toggleMerchantHistory('mh-${t._row}', '${safeDesc}')" style="background:none;border:1px solid var(--border);color:var(--text3);border-radius:4px;cursor:pointer;font-size:11px;padding:1px 6px;margin-left:6px;vertical-align:middle" id="mh-btn-${t._row}">&#43;</button>${t['תיאור'] || ''}</td>
+              <td data-label="תיאור" class="editable" style="white-space:nowrap" ondblclick="editCell(this, '${t._row}', 'תיאור', '${safeDesc}')"><button onclick="toggleMerchantHistory('mh-${t._row}', '${safeDesc}')" style="background:none;border:1px solid var(--border);color:var(--text3);border-radius:4px;cursor:pointer;font-size:11px;padding:1px 6px;margin-left:4px;vertical-align:middle" id="mh-btn-${t._row}">&#43;</button><button class="delete-btn" onclick="deleteTransaction(${t._row})" title="מחק" style="vertical-align:middle;margin-left:4px">🗑️</button>${t['תיאור'] || ''}</td>
               <td data-label="קטגוריה">
                 <select class="inline-select" onchange="updateField(${t._row}, 'קטגוריה', this.value)">
                   ${categories.map(c => `<option value="${c['קטגוריה']}" ${c['קטגוריה'] === t['קטגוריה'] ? 'selected' : ''}>${c['קטגוריה']}</option>`).join('')}
@@ -1420,9 +1420,7 @@ function renderTable() {
               </td>
               <td data-label="סכום עסקה" style="color:var(--text2);font-size:12px">${t['סכום העסקה'] ? formatMoney(t['סכום העסקה']) : ''}</td>
               <td data-label="הערות תשלומים" style="color:var(--text2);font-size:12px">${t['הערות תשלומים'] || ''}</td>
-              <td style="overflow:visible;text-align:center">
-                <button class="delete-btn" onclick="deleteTransaction(${t._row})" title="מחק">🗑️</button>
-              </td>
+
             </tr>
             <tr id="mh-${t._row}" style="display:none;line-height:0">
               <td colspan="11" style="padding:0;margin:0;background:var(--bg2);border-bottom:none">
