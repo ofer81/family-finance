@@ -1369,7 +1369,7 @@ function renderTable() {
         <col style="width:90px">
         <col style="width:90px">
         <col style="width:110px">
-        <col style="width:44px">
+        <col style="width:60px">
       </colgroup>
       <thead>
         <tr>
@@ -1584,13 +1584,23 @@ function editCell(td, row, field, currentVal) {
   input.type = 'text';
   input.className = 'inline-input';
   input.value = currentVal;
+  // שמור את ה-button של הפלוס אם קיים
+  const plusBtn = td.querySelector('button[id^="mh-btn-"]');
   td.innerHTML = '';
+  if (plusBtn) td.appendChild(plusBtn);
   td.appendChild(input);
   input.focus();
 
   const save = async () => {
     const newVal = input.value;
-    td.textContent = newVal || '';
+    // שחזר תוכן עם כפתור הפלוס
+    if (plusBtn) {
+      td.innerHTML = '';
+      td.appendChild(plusBtn);
+      td.appendChild(document.createTextNode(newVal || ''));
+    } else {
+      td.textContent = newVal || '';
+    }
     await updateField(row, field, newVal);
     showToast('עודכן ✓', 'success');
   };
