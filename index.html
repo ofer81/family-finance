@@ -1392,7 +1392,7 @@ function renderTable() {
           const isSaving = t['סוג'] === 'חסכון';
           const amount = parseFloat(t['סכום'] || 0);
           const dateStr = t['תאריך'] ? parseLocalDate(t['תאריך']).toLocaleDateString('he-IL') : '';
-          const safeDesc = encodeURIComponent(t['תיאור'] || '');
+          const safeDesc = encodeURIComponent(t['תיאור'] || '').replace(/'/g, '%27');
           const safeNotes = (t['הערות'] || '').replace(/'/g, "\\'");
           return `
             <tr data-row="${t._row}">
