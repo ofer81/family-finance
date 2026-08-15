@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -755,6 +756,7 @@
           <select class="filter-select" id="rule-cat" style="flex:1;min-width:120px">
             <option value="">ללא קטגוריה ספציפית</option>
           </select>
+          <input type="text" class="filter-input" id="rule-display-name" placeholder="שם תצוגה (אופציונלי)..." style="flex:1;min-width:160px">
         </div>
         <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
           <select class="filter-select" id="rule-amount-op" style="min-width:130px" onchange="toggleAmountFields()">
@@ -1727,14 +1729,16 @@ function addRule() {
   const op = document.getElementById('rule-amount-op').value;
   const amountVal = document.getElementById('rule-amount-exact').value;
   const amountMax = document.getElementById('rule-amount-max').value;
+  const displayName = document.getElementById('rule-display-name').value.trim();
   if (!text) { showToast('נא להכניס טקסט לחיפוש', 'error'); return; }
-  const rule = { text, type, source, cat, amountOp: op };
+  const rule = { text, type, source, cat, displayName, amountOp: op };
   if (op && amountVal) rule.amountVal = parseFloat(amountVal);
   if (op === 'range' && amountMax) rule.amountMax = parseFloat(amountMax);
   rules.push(rule);
   saveRules();
   renderRules();
   document.getElementById('rule-text').value = '';
+  document.getElementById('rule-display-name').value = '';
   document.getElementById('rule-amount-exact').value = '';
   document.getElementById('rule-amount-max').value = '';
   document.getElementById('rule-amount-op').value = '';
@@ -1755,6 +1759,7 @@ function editRule(idx) {
   document.getElementById('rule-type').value = r.type || '';
   document.getElementById('rule-source').value = r.source || '';
   document.getElementById('rule-cat').value = r.cat || '';
+  document.getElementById('rule-display-name').value = r.displayName || '';
   document.getElementById('rule-amount-op').value = r.amountOp || '';
   document.getElementById('rule-amount-exact').value = r.amountVal || r.amountExact || '';
   document.getElementById('rule-amount-max').value = r.amountMax || '';
@@ -1841,6 +1846,7 @@ function applyRulesToRows(rows) {
       if (!rule.amountOp && rule.amountExact && Math.abs(amount - rule.amountExact) > 0.01) continue;
       if (rule.type) row['סוג'] = rule.type;
       if (rule.cat) row['קטגוריה'] = rule.cat;
+      if (rule.displayName) row['תיאור'] = rule.displayName;
     }
     return row;
   });
@@ -1863,7 +1869,7 @@ async function applyRulesToAll() {
       if (rule.amountOp === 'max' && rule.amountVal && amount > rule.amountVal) continue;
       if (rule.amountOp === 'range' && rule.amountVal && rule.amountMax && (amount < rule.amountVal || amount > rule.amountMax)) continue;
       if (!rule.amountOp && rule.amountExact && Math.abs(amount - rule.amountExact) > 0.01) continue;
-      toUpdate.push({ row: t._row, סוג: rule.type, קטגוריה: rule.cat || t['קטגוריה'] });
+      toUpdate.push({ row: t._row, סוג: rule.type, קטגוריה: rule.cat || t['קטגוריה'], תיאור: rule.displayName || t['תיאור'] });
       break;
     }
   });
@@ -1910,7 +1916,7 @@ function renderRules() {
     return `
     <div class="rule-item">
       <div class="rule-text">
-        אם התיאור מכיל <span>"${r.text}"</span>${r.source ? ' ומקור <span>' + r.source + '</span>' : ''}${r.type ? ' וסוג <span>' + r.type + '</span>' : ''}${amountStr} → קטגוריה: <span>${r.cat || '(ללא שינוי)'}</span>
+        אם התיאור מכיל <span>"${r.text}"</span>${r.source ? ' ומקור <span>' + r.source + '</span>' : ''}${r.type ? ' וסוג <span>' + r.type + '</span>' : ''}${amountStr} → קטגוריה: <span>${r.cat || '(ללא שינוי)'}</span>${r.displayName ? ' | שם תצוגה: <span>' + r.displayName + '</span>' : ''}
         ${r.cat ? `בקטגוריה <span>${r.cat}</span>` : ''}
       </div>
       <div style="display:flex;gap:6px">
