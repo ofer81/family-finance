@@ -957,7 +957,7 @@ const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwd-SlBN7bH1wpdK97lv
 
 let allTransactions = [];
 const INTERNAL_TRANSFER = 'העברה פנימית';
-function isInternal(t) { return (t['קטגוריה'] || '') === INTERNAL_TRANSFER; }
+function isInternal(t) { return (t['קטגוריה'] || '') === INTERNAL_TRANSFER || t['סוג'] === 'חסכון'; }
 let filteredTransactions = [];
 let categories = [];
 let selectedType = 'הוצאה';
@@ -1357,7 +1357,11 @@ function renderTable() {
     let aVal = a[sortField] || '';
     let bVal = b[sortField] || '';
     if (sortField === 'תאריך חיוב' || sortField === 'תאריך עסקה') return sortDir * (new Date(aVal) - new Date(bVal));
-    if (sortField === 'סכום') return sortDir * (parseFloat(aVal) - parseFloat(bVal));
+    if (sortField === 'סכום') {
+      const aSign = a['סוג'] === 'הכנסה' ? 1 : -1;
+      const bSign = b['סוג'] === 'הכנסה' ? 1 : -1;
+      return sortDir * (aSign * parseFloat(aVal) - bSign * parseFloat(bVal));
+    }
     return sortDir * String(aVal).localeCompare(String(bVal), 'he');
   });
 
