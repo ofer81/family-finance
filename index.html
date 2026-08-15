@@ -589,7 +589,7 @@
 <!-- HEADER -->
 <!-- NAV -->
 <div class="nav">
-  <span style="font-size:10px;color:var(--text3);padding:0 8px;align-self:center">גירסה: 150826-22:07</span>
+  <span style="font-size:10px;color:var(--text3);padding:0 8px;align-self:center">גירסה: 150826-22:12</span>
   <button class="nav-btn active" onclick="switchTab('transactions')" id="tab-transactions">📋 עסקאות</button>
   <button class="nav-btn" onclick="switchTab('charts')" id="tab-charts">📊 גרפים</button>
   <button class="nav-btn" onclick="switchTab('rules')" id="tab-rules">⚙️ כללים</button>
@@ -1258,7 +1258,20 @@ function toggleMerchantHistory(rowId, desc) {
   const isOpen = row.style.display !== 'none';
   row.style.display = isOpen ? 'none' : '';
   btn.innerHTML = isOpen ? '&#43;' : '&minus;';
-  if (!isOpen) renderMerchantHistory(rowId, desc);
+  if (!isOpen) {
+    // בנה אינדקס ספציפי לבית עסק זה מכל העסקאות הקיימות
+    const months = {};
+    allTransactions.forEach(t => {
+      if (getDisplayName(t).trim() !== desc) return;
+      const d = parseLocalDate(t['תאריך חיוב']);
+      if (isNaN(d)) return;
+      const mkey = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+      if (!months[mkey]) months[mkey] = [];
+      months[mkey].push(t);
+    });
+    merchantIndex[desc] = months;
+    renderMerchantHistory(rowId, desc);
+  }
 }
 
 function renderMerchantHistory(rowId, desc) {
