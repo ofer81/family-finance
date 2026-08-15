@@ -1020,21 +1020,24 @@ async function loadData(forceRefresh = false) {
       }
     }
 
-    buildMerchantIndex();
-    updateSummary();
-    renderTable();
-    renderCharts();
-    populateMonthFilter();
-    populateSourceFilter();
-    renderSourceDates();
-    populateSourceMs();
-    populateNotesMs();
-
   } catch (err) {
     showToast('שגיאה בטעינת נתונים', 'error');
+    console.error('loadData error:', err);
+    return;
   } finally {
     syncBtn.classList.remove('loading');
   }
+
+  // עדכון UI מחוץ לבלוק ה-try
+  try { buildMerchantIndex(); } catch(e) { console.error('buildMerchantIndex:', e); }
+  try { updateSummary(); } catch(e) { console.error('updateSummary:', e); }
+  try { renderTable(); } catch(e) { console.error('renderTable:', e); }
+  try { renderCharts(); } catch(e) { console.error('renderCharts:', e); }
+  try { populateMonthFilter(); } catch(e) {}
+  try { populateSourceFilter(); } catch(e) {}
+  try { renderSourceDates(); } catch(e) {}
+  try { populateSourceMs(); } catch(e) {}
+  try { populateNotesMs(); } catch(e) {}
 
   // טעינת היסטוריה מלאה ברקע — אחרי 2 שניות כדי לא לחסום את הממשק
   setTimeout(loadFullHistory, 2000);
