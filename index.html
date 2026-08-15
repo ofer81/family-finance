@@ -589,7 +589,7 @@
 <!-- HEADER -->
 <!-- NAV -->
 <div class="nav">
-  <span style="font-size:10px;color:var(--text3);padding:0 8px;align-self:center">גירסה: 150826-22:12</span>
+  <span style="font-size:10px;color:var(--text3);padding:0 8px;align-self:center">גירסה: 150826-22:19</span>
   <button class="nav-btn active" onclick="switchTab('transactions')" id="tab-transactions">📋 עסקאות</button>
   <button class="nav-btn" onclick="switchTab('charts')" id="tab-charts">📊 גרפים</button>
   <button class="nav-btn" onclick="switchTab('rules')" id="tab-rules">⚙️ כללים</button>
@@ -1285,7 +1285,18 @@ function renderMerchantHistory(rowId, desc) {
   }
   const heMonths = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
   const sortedMonths = Object.keys(months).sort().reverse();
-  content.innerHTML = sortedMonths.map(mkey => {
+
+  // סיכום כולל
+  const allTxs = sortedMonths.flatMap(m => months[m]);
+  const grandTotal = allTxs.reduce((s,t) => s + (t['סוג'] === 'הכנסה' ? 1 : -1) * parseFloat(t['סכום']||0), 0);
+  const totalColor = grandTotal >= 0 ? 'var(--income)' : 'var(--expense)';
+  const totalSign = grandTotal >= 0 ? '+' : '';
+  const summaryBar = `<div style="padding:6px 12px;background:var(--card2);border-bottom:1px solid var(--border);font-size:12px;display:flex;justify-content:space-between;align-items:center">
+    <span style="color:var(--text3)">${allTxs.length} עסקאות בסה"כ</span>
+    <span style="font-weight:700;color:${totalColor}">${totalSign}${formatMoney(Math.abs(grandTotal))}</span>
+  </div>`;
+
+  content.innerHTML = summaryBar + sortedMonths.map(mkey => {
     const [y, m] = mkey.split('-');
     const label = heMonths[parseInt(m)-1] + ' ' + y;
     const txs = months[mkey];
