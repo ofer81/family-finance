@@ -1049,14 +1049,16 @@ async function loadFullHistory() {
   try {
     const res = await fetch(SCRIPT_URL + '?action=getTransactions');
     const data = await res.json();
-    if (data.success && data.data.length > allTransactions.length) {
-      allTransactions = data.data;
-      applyFilters();
-      populateMonthFilter();
-      populateSourceFilter();
-      populateSourceMs();
-      populateNotesMs();
-      renderSourceDates();
+    if (data.success) {
+      if (data.data.length > allTransactions.length) {
+        allTransactions = data.data;
+        applyFilters();
+        populateMonthFilter();
+        populateSourceFilter();
+        populateSourceMs();
+        populateNotesMs();
+        renderSourceDates();
+      }
       buildMerchantIndex();
     }
   } catch(e) {
