@@ -957,7 +957,7 @@ const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwd-SlBN7bH1wpdK97lv
 
 let allTransactions = [];
 const INTERNAL_TRANSFER = 'העברה פנימית';
-function isInternal(t) { return (t['קטגוריה'] || '') === INTERNAL_TRANSFER || t['סוג'] === 'חסכון'; }
+function isInternal(t) { return (t['קטגוריה'] || '') === INTERNAL_TRANSFER; }
 let filteredTransactions = [];
 let categories = [];
 let selectedType = 'הוצאה';
@@ -1095,7 +1095,7 @@ function renderSourceDates() {
 }
 
 function updateSummary() {
-  const source = filteredTransactions;
+  const source = filteredTransactions.filter(t => !isInternal(t) && t['סוג'] !== 'חסכון');
   const income = source.filter(t => t['סוג'] === 'הכנסה').reduce((s, t) => s + parseFloat(t['סכום'] || 0), 0);
   const expense = source.filter(t => t['סוג'] === 'הוצאה').reduce((s, t) => s + parseFloat(t['סכום'] || 0), 0);
   const balance = income - expense;
@@ -1377,8 +1377,8 @@ function renderTable() {
         <col style="width:90px">
         <col style="width:110px">
         <col style="width:100px">
-        <col style="width:90px">
-        <col style="width:90px">
+        <col style="width:110px">
+        <col style="width:110px">
         <col style="width:110px">
       </colgroup>
       <thead>
