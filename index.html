@@ -1095,7 +1095,7 @@ function renderSourceDates() {
 }
 
 function updateSummary() {
-  const source = filteredTransactions.filter(t => !isInternal(t) && t['סוג'] !== 'חסכון');
+  const source = filteredTransactions.filter(t => !isInternal(t) && t['קטגוריה'] !== 'חיסכון');
   const income = source.filter(t => t['סוג'] === 'הכנסה').reduce((s, t) => s + parseFloat(t['סכום'] || 0), 0);
   const expense = source.filter(t => t['סוג'] === 'הוצאה').reduce((s, t) => s + parseFloat(t['סכום'] || 0), 0);
   const balance = income - expense;
@@ -2739,7 +2739,7 @@ function renderTrends() {
     if (isNaN(d)) return;
     const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
     const amount = parseFloat(t['סכום'] || 0);
-    if ((!type || type === '') && t['סוג'] === 'חסכון') return; // חיסכון לא נכלל ביתרה
+    if ((!type || type === '') && t['קטגוריה'] === 'חיסכון') return; // חיסכון לא נכלל ביתרה
     const delta = (!type || type === '') ? (t['סוג'] === 'הכנסה' ? amount : -amount) : amount;
     byMonth[key] = (byMonth[key] || 0) + delta;
   });
