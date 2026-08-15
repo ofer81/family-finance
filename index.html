@@ -589,6 +589,7 @@
 <!-- HEADER -->
 <!-- NAV -->
 <div class="nav">
+  <span style="font-size:10px;color:var(--text3);padding:0 8px;align-self:center">גירסה: 150826-22:07</span>
   <button class="nav-btn active" onclick="switchTab('transactions')" id="tab-transactions">📋 עסקאות</button>
   <button class="nav-btn" onclick="switchTab('charts')" id="tab-charts">📊 גרפים</button>
   <button class="nav-btn" onclick="switchTab('rules')" id="tab-rules">⚙️ כללים</button>
@@ -1060,6 +1061,15 @@ async function loadFullHistory() {
         renderSourceDates();
       }
       buildMerchantIndex();
+      // עדכן accordion פתוח אם קיים
+      document.querySelectorAll('[id^="mh-"][style*="display: ;"], [id^="mh-"][style*="display:;"]').forEach(row => {
+        const rowId = row.id;
+        const btn = document.getElementById('mh-btn-' + rowId.replace('mh-',''));
+        if (btn) {
+          const desc = decodeURIComponent(btn.getAttribute('onclick').match(/toggleMerchantHistory\('[^']+',\s*'([^']+)'\)/)?.[1] || '');
+          if (desc) renderMerchantHistory(rowId, desc);
+        }
+      });
     }
   } catch(e) {
     // שגיאה ברקע — לא קריטי
