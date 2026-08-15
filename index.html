@@ -1403,7 +1403,7 @@ function renderTable() {
             <tr data-row="${t._row}">
               <td data-label="תאריך חיוב">${formatDate(t['תאריך חיוב'])}</td>
               <td data-label="תאריך עסקה">${formatDate(t['תאריך עסקה'])}</td>
-              <td data-label="תיאור" class="editable" style="white-space:nowrap" dir="auto" ondblclick="editCell(this, '${t._row}', 'תיאור', '${safeDesc}')"><button onclick="toggleMerchantHistory('mh-${t._row}', '${safeDesc}')" style="background:none;border:1px solid var(--border);color:var(--text3);border-radius:4px;cursor:pointer;font-size:11px;padding:1px 6px;margin-left:4px;vertical-align:middle" id="mh-btn-${t._row}">&#43;</button><button class="delete-btn" onclick="deleteTransaction(${t._row})" title="מחק" style="vertical-align:middle;margin-left:4px">🗑️</button>${getDisplayName(t)}</td>
+              <td data-label="תיאור" class="editable" style="white-space:nowrap" dir="auto" ondblclick="editCell(this, '${t._row}', 'תיאור', '${(t['תיאור']||'').replace(/'/g,\"\\'\")}')"><button onclick="toggleMerchantHistory('mh-${t._row}', '${safeDesc}')" style="background:none;border:1px solid var(--border);color:var(--text3);border-radius:4px;cursor:pointer;font-size:11px;padding:1px 6px;margin-left:4px;vertical-align:middle" id="mh-btn-${t._row}">&#43;</button><button class="delete-btn" onclick="deleteTransaction(${t._row})" title="מחק" style="vertical-align:middle;margin-left:4px">🗑️</button>${getDisplayName(t)}</td>
               <td data-label="קטגוריה">
                 <select class="inline-select" onchange="updateField(${t._row}, 'קטגוריה', this.value)">
                   ${categories.map(c => `<option value="${c['קטגוריה']}" ${c['קטגוריה'] === t['קטגוריה'] ? 'selected' : ''}>${c['קטגוריה']}</option>`).join('')}
