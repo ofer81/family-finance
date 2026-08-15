@@ -1368,7 +1368,7 @@ function renderTable() {
       <colgroup>
         <col style="width:100px">
         <col style="width:100px">
-        <col style="width:200px">
+        <col style="width:260px">
         <col style="width:130px">
         <col style="width:90px">
         <col style="width:110px">
@@ -1403,7 +1403,7 @@ function renderTable() {
             <tr data-row="${t._row}">
               <td data-label="תאריך חיוב">${formatDate(t['תאריך חיוב'])}</td>
               <td data-label="תאריך עסקה">${formatDate(t['תאריך עסקה'])}</td>
-              <td data-label="תיאור" class="editable" style="white-space:nowrap" ondblclick="editCell(this, '${t._row}', 'תיאור', '${safeDesc}')"><button onclick="toggleMerchantHistory('mh-${t._row}', '${safeDesc}')" style="background:none;border:1px solid var(--border);color:var(--text3);border-radius:4px;cursor:pointer;font-size:11px;padding:1px 6px;margin-left:4px;vertical-align:middle" id="mh-btn-${t._row}">&#43;</button><button class="delete-btn" onclick="deleteTransaction(${t._row})" title="מחק" style="vertical-align:middle;margin-left:4px">🗑️</button>${getDisplayName(t)}</td>
+              <td data-label="תיאור" class="editable" style="white-space:nowrap" dir="auto" ondblclick="editCell(this, '${t._row}', 'תיאור', '${safeDesc}')"><button onclick="toggleMerchantHistory('mh-${t._row}', '${safeDesc}')" style="background:none;border:1px solid var(--border);color:var(--text3);border-radius:4px;cursor:pointer;font-size:11px;padding:1px 6px;margin-left:4px;vertical-align:middle" id="mh-btn-${t._row}">&#43;</button><button class="delete-btn" onclick="deleteTransaction(${t._row})" title="מחק" style="vertical-align:middle;margin-left:4px">🗑️</button>${getDisplayName(t)}</td>
               <td data-label="קטגוריה">
                 <select class="inline-select" onchange="updateField(${t._row}, 'קטגוריה', this.value)">
                   ${categories.map(c => `<option value="${c['קטגוריה']}" ${c['קטגוריה'] === t['קטגוריה'] ? 'selected' : ''}>${c['קטגוריה']}</option>`).join('')}
@@ -1869,7 +1869,11 @@ async function applyRulesToAll() {
       if (rule.amountOp === 'max' && rule.amountVal && amount > rule.amountVal) continue;
       if (rule.amountOp === 'range' && rule.amountVal && rule.amountMax && (amount < rule.amountVal || amount > rule.amountMax)) continue;
       if (!rule.amountOp && rule.amountExact && Math.abs(amount - rule.amountExact) > 0.01) continue;
-      toUpdate.push({ row: t._row, 'סוג': rule.type, 'קטגוריה': rule.cat || t['קטגוריה'], 'שם תצוגה': rule.displayName || '' });
+      const updateObj = { row: t._row };
+      if (rule.type) updateObj['סוג'] = rule.type;
+      if (rule.cat) updateObj['קטגוריה'] = rule.cat;
+      if (rule.displayName) updateObj['שם תצוגה'] = rule.displayName;
+      toUpdate.push(updateObj);
       break;
     }
   });
