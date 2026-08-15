@@ -971,7 +971,7 @@ let merchantIndex = {}; // desc → { months: { YYYY-MM: [transactions] } }
 function buildMerchantIndex() {
   merchantIndex = {};
   [...allTransactions].sort((a, b) => new Date(b['תאריך חיוב']) - new Date(a['תאריך חיוב'])).forEach(t => {
-    const desc = (t['תיאור'] || '').trim();
+    const desc = getDisplayName(t).trim() || (t['תיאור'] || '').trim();
     if (!desc) return;
     const d = parseLocalDate(t['תאריך חיוב']);
     if (isNaN(d)) return;
@@ -1397,13 +1397,13 @@ function renderTable() {
           const isSaving = t['סוג'] === 'חסכון';
           const amount = parseFloat(t['סכום'] || 0);
           const dateStr = t['תאריך'] ? parseLocalDate(t['תאריך']).toLocaleDateString('he-IL') : '';
-          const safeDesc = encodeURIComponent(t['תיאור'] || '').replace(/'/g, '%27');
+          const safeDesc = encodeURIComponent(getDisplayName(t)).replace(/'/g, '%27');
           const safeNotes = (t['הערות'] || '').replace(/'/g, "\\'");
           return `
             <tr data-row="${t._row}">
               <td data-label="תאריך חיוב">${formatDate(t['תאריך חיוב'])}</td>
               <td data-label="תאריך עסקה">${formatDate(t['תאריך עסקה'])}</td>
-              <td data-label="תיאור" class="editable" style="white-space:nowrap" ondblclick="editCell(this, '${t._row}', 'תיאור', '${safeDesc}')"><button onclick="toggleMerchantHistory('mh-${t._row}', '${safeDesc}')" style="background:none;border:1px solid var(--border);color:var(--text3);border-radius:4px;cursor:pointer;font-size:11px;padding:1px 6px;margin-left:4px;vertical-align:middle" id="mh-btn-${t._row}">&#43;</button><button class="delete-btn" onclick="deleteTransaction(${t._row})" title="מחק" style="vertical-align:middle;margin-left:4px">🗑️</button>${t['תיאור'] || ''}</td>
+              <td data-label="תיאור" class="editable" style="white-space:nowrap" ondblclick="editCell(this, '${t._row}', 'תיאור', '${safeDesc}')"><button onclick="toggleMerchantHistory('mh-${t._row}', '${safeDesc}')" style="background:none;border:1px solid var(--border);color:var(--text3);border-radius:4px;cursor:pointer;font-size:11px;padding:1px 6px;margin-left:4px;vertical-align:middle" id="mh-btn-${t._row}">&#43;</button><button class="delete-btn" onclick="deleteTransaction(${t._row})" title="מחק" style="vertical-align:middle;margin-left:4px">🗑️</button>${getDisplayName(t)}</td>
               <td data-label="קטגוריה">
                 <select class="inline-select" onchange="updateField(${t._row}, 'קטגוריה', this.value)">
                   ${categories.map(c => `<option value="${c['קטגוריה']}" ${c['קטגוריה'] === t['קטגוריה'] ? 'selected' : ''}>${c['קטגוריה']}</option>`).join('')}
@@ -1846,7 +1846,7 @@ function applyRulesToRows(rows) {
       if (!rule.amountOp && rule.amountExact && Math.abs(amount - rule.amountExact) > 0.01) continue;
       if (rule.type) row['סוג'] = rule.type;
       if (rule.cat) row['קטגוריה'] = rule.cat;
-      if (rule.displayName) row['תיאור'] = rule.displayName;
+      if (rule.displayName) row['_displayName'] = rule.displayName;
     }
     return row;
   });
@@ -1869,7 +1869,7 @@ async function applyRulesToAll() {
       if (rule.amountOp === 'max' && rule.amountVal && amount > rule.amountVal) continue;
       if (rule.amountOp === 'range' && rule.amountVal && rule.amountMax && (amount < rule.amountVal || amount > rule.amountMax)) continue;
       if (!rule.amountOp && rule.amountExact && Math.abs(amount - rule.amountExact) > 0.01) continue;
-      toUpdate.push({ row: t._row, סוג: rule.type, קטגוריה: rule.cat || t['קטגוריה'], תיאור: rule.displayName || t['תיאור'] });
+      toUpdate.push({ row: t._row, 'סוג': rule.type, 'קטגוריה': rule.cat || t['קטגוריה'], 'שם תצוגה': rule.displayName || '' });
       break;
     }
   });
@@ -3032,6 +3032,10 @@ function parseLocalDate(val) {
   const m2 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (m2) return new Date(parseInt(m2[3]), parseInt(m2[2])-1, parseInt(m2[1]));
   return new Date(val);
+}
+
+function getDisplayName(t) {
+  return t['_displayName'] || t['שם תצוגה'] || t['תיאור'] || '';
 }
 
 function formatDate(val) {
