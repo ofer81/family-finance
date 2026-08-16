@@ -589,7 +589,7 @@
 <!-- HEADER -->
 <!-- NAV -->
 <div class="nav">
-  <span style="font-size:10px;color:var(--text3);padding:0 8px;align-self:center">גירסה: 160826-06:46</span>
+  <span style="font-size:10px;color:var(--text3);padding:0 8px;align-self:center">גירסה: 160826-09:58</span>
   <button class="nav-btn active" onclick="switchTab('transactions')" id="tab-transactions">📋 עסקאות</button>
   <button class="nav-btn" onclick="switchTab('charts')" id="tab-charts">📊 גרפים</button>
   <button class="nav-btn" onclick="switchTab('rules')" id="tab-rules">⚙️ כללים</button>
@@ -1433,8 +1433,8 @@ function renderTable() {
       </thead>
       <tbody>
         ${sorted.slice(0, (currentPage + 1) * PAGE_SIZE).map(t => {
-          const isIncome = t['סוג'] === 'הכנסה';
-          const isSaving = t['סוג'] === 'חסכון';
+          const isIncome = t['סוג'] === 'הכנסה' && t['קטגוריה'] !== 'חיסכון';
+          const isSaving = t['קטגוריה'] === 'חיסכון';
           const amount = parseFloat(t['סכום'] || 0);
           const dateStr = t['תאריך'] ? parseLocalDate(t['תאריך']).toLocaleDateString('he-IL') : '';
           const safeDesc = encodeURIComponent(getDisplayName(t)).replace(/'/g, '%27');
