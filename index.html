@@ -589,7 +589,7 @@
 <!-- HEADER -->
 <!-- NAV -->
 <div class="nav">
-  <span style="font-size:10px;color:var(--text3);padding:0 8px;align-self:center">גירסה: 150826-22:22</span>
+  <span style="font-size:10px;color:var(--text3);padding:0 8px;align-self:center">גירסה: 150826-22:25</span>
   <button class="nav-btn active" onclick="switchTab('transactions')" id="tab-transactions">📋 עסקאות</button>
   <button class="nav-btn" onclick="switchTab('charts')" id="tab-charts">📊 גרפים</button>
   <button class="nav-btn" onclick="switchTab('rules')" id="tab-rules">⚙️ כללים</button>
@@ -1468,8 +1468,8 @@ function renderTable() {
 
             </tr>
             <tr id="mh-${t._row}" style="display:none;line-height:0">
-              <td colspan="11" style="padding:0;margin:0;background:var(--bg2);border-bottom:none">
-                <div id="mh-content-${t._row}" style="padding:8px 24px;line-height:1.4"></div>
+              <td colspan="11" style="padding:0;margin:0;background:var(--bg2);border-bottom:none;overflow:visible;max-width:0">
+                <div id="mh-content-${t._row}" style="line-height:1.4;width:calc(100vw - 40px);max-width:1200px"></div>
               </td>
             </tr>`;
         }).join('')}
